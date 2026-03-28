@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 
 # Page config
-st.set_page_config(page_title="Volatility Dashboard", layout="wide", page_icon="📈")
+st.set_page_config(page_title="FazDane Analytics | Volatility", layout="wide", page_icon="📈")
 
 # Custom CSS for premium look
 st.markdown("""
@@ -23,11 +23,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📈 Real-Time Volatility Dashboard")
-st.markdown("Analyze historical stock price and its annualized rolling volatility. Designed for institutional-grade visual clarity.")
+st.title("📈 FazDane Analytics: Volatility Engine")
+st.markdown("Proprietary analysis of historical stock prices and annualized rolling volatility. Powered by **FazDane Analytics**.")
 
 # Sidebar for inputs
 with st.sidebar:
+    st.markdown("### 🏢 FazDane Analytics")
+    st.markdown("---")
     st.header("⚙️ Parameters")
     ticker = st.text_input("Ticker Symbol", value="AAPL")
     
@@ -103,14 +105,14 @@ if ticker:
             xaxis=dict(title="Date", showgrid=False),
             yaxis=dict(
                 title="Price ($)",
-                titlefont=dict(color="#00ADB5"),
+                title_font=dict(color="#00ADB5"),
                 tickfont=dict(color="#00ADB5"),
                 showgrid=True,
                 gridcolor="rgba(255,255,255,0.1)"
             ),
             yaxis2=dict(
                 title="Volatility (%)",
-                titlefont=dict(color="#F8B195"),
+                title_font=dict(color="#F8B195"),
                 tickfont=dict(color="#F8B195"),
                 anchor="x",
                 overlaying="y",
