@@ -40,7 +40,7 @@ def sanitize_text(text):
     # Further encode to latin-1 to strip any remaining unrenderable characters
     return text.encode('latin-1', 'ignore').decode('latin-1')
 
-def generate_pdf_report(ticker, company_name, current_price, result, fig_vol, fig_term):
+def generate_pdf_report(ticker, company_name, current_price, result, fig_vol, fig_term, table_rows=None):
     """
     Generates a 1-pager PDF report and returns it as a byte string for Streamlit download.
     """
@@ -50,83 +50,104 @@ def generate_pdf_report(ticker, company_name, current_price, result, fig_vol, fi
     # --- TICKER INFO ---
     pdf.set_font("Helvetica", style="B", size=18)
     pdf.set_text_color(30, 30, 30)
-    pdf.cell(0, 10, sanitize_text(f"{ticker} - {company_name}"), new_x="LMARGIN", new_y="NEXT", align="L")
+    pdf.cell(0, 8, sanitize_text(f"{ticker} - {company_name}"), new_x="LMARGIN", new_y="NEXT", align="L")
     
-    pdf.set_font("Helvetica", size=11)
+    pdf.set_font("Helvetica", size=10)
     pdf.set_text_color(100, 100, 100)
-    pdf.cell(0, 8, sanitize_text(f"Current Price: ${current_price:,.2f}"), new_x="LMARGIN", new_y="NEXT", align="L")
-    pdf.ln(5)
+    pdf.cell(0, 6, sanitize_text(f"Current Price: ${current_price:,.2f}"), new_x="LMARGIN", new_y="NEXT", align="L")
+    pdf.ln(3)
 
     # --- STRATEGY OUTPUT BOX ---
     pdf.set_fill_color(245, 248, 250)
     pdf.set_draw_color(0, 173, 181)
     pdf.set_line_width(0.5)
     
-    # We use a cell to draw the background box
-    pdf.set_font("Helvetica", style="B", size=14)
+    pdf.set_font("Helvetica", style="B", size=12)
     pdf.set_text_color(0, 173, 181)
-    pdf.cell(0, 10, "Strategy Recommendation", border="TLR", fill=True, new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.cell(0, 8, "Strategy Recommendation", border="TLR", fill=True, new_x="LMARGIN", new_y="NEXT", align="C")
     
-    pdf.set_font("Helvetica", style="B", size=16)
+    pdf.set_font("Helvetica", style="B", size=14)
     pdf.set_text_color(30, 30, 30)
-    pdf.cell(0, 12, sanitize_text(result['strategy']), border="LR", fill=True, new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.cell(0, 10, sanitize_text(result['strategy']), border="LR", fill=True, new_x="LMARGIN", new_y="NEXT", align="C")
     
-    # Confidence color logic
     conf = sanitize_text(result['confidence'])
-    if conf == "High":
-        pdf.set_text_color(82, 214, 138) # Green
-    elif conf == "Medium":
-        pdf.set_text_color(220, 180, 0)  # Yellow-ish
-    else:
-        pdf.set_text_color(255, 107, 107) # Red
+    if conf == "High": pdf.set_text_color(82, 214, 138)
+    elif conf == "Medium": pdf.set_text_color(220, 180, 0)
+    else: pdf.set_text_color(255, 107, 107)
         
-    pdf.set_font("Helvetica", style="B", size=11)
-    pdf.cell(0, 8, f"Confidence: {conf}", border="LR", fill=True, new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.set_font("Helvetica", style="B", size=10)
+    pdf.cell(0, 6, f"Confidence: {conf}", border="LR", fill=True, new_x="LMARGIN", new_y="NEXT", align="C")
     
     pdf.set_text_color(80, 80, 80)
-    pdf.set_font("Helvetica", size=10)
-    pdf.cell(95, 8, sanitize_text(f"Target DTE: {result['dte_rec']}"), border="L", fill=True, align="R")
-    pdf.cell(95, 8, sanitize_text(f"Strike: {result['strike_note']}"), border="R", fill=True, new_x="LMARGIN", new_y="NEXT", align="L")
+    pdf.set_font("Helvetica", size=9)
+    pdf.cell(95, 6, sanitize_text(f"Target DTE: {result['dte_rec']}"), border="L", fill=True, align="R")
+    pdf.cell(95, 6, sanitize_text(f"Strike: {result['strike_note']}"), border="R", fill=True, new_x="LMARGIN", new_y="NEXT", align="L")
     
-    # Reason
-    # We use multi_cell for the long reason text
-    pdf.set_font("Helvetica", style="I", size=9)
+    pdf.set_font("Helvetica", style="I", size=8)
     pdf.set_text_color(100, 100, 100)
-    pdf.multi_cell(0, 6, sanitize_text(result['reason']), border="BLR", fill=True, align="C")
-    pdf.ln(8)
+    pdf.multi_cell(0, 5, sanitize_text(result['reason']), border="BLR", fill=True, align="C")
+    pdf.ln(5)
 
-    # --- GRAPHS ---
-    pdf.set_font("Helvetica", style="B", size=14)
-    pdf.set_text_color(30, 30, 30)
-    pdf.cell(0, 10, "Volatility Analysis", new_x="LMARGIN", new_y="NEXT", align="L")
-    pdf.ln(2)
+    # --- METRICS TABLE ---
+    if table_rows:
+        pdf.set_font("Helvetica", style="B", size=10)
+        pdf.set_text_color(30, 30, 30)
+        pdf.cell(0, 8, "Volatility & Market Context", new_x="LMARGIN", new_y="NEXT", align="L")
+        
+        # Table Header
+        pdf.set_fill_color(220, 240, 245)
+        pdf.set_text_color(0, 150, 160)
+        pdf.set_font("Helvetica", style="B", size=8)
+        pdf.cell(45, 6, "Metric", border=1, fill=True)
+        pdf.cell(35, 6, "Value", border=1, fill=True)
+        pdf.cell(110, 6, "Interpretation", border=1, fill=True, new_x="LMARGIN", new_y="NEXT")
+        
+        # Table Body
+        pdf.set_font("Helvetica", size=8)
+        for i, row in enumerate(table_rows):
+            pdf.set_fill_color(250, 252, 253) if i % 2 == 0 else pdf.set_fill_color(255, 255, 255)
+            pdf.set_text_color(80, 80, 80)
+            
+            # Use fixed height cells for simplicity
+            pdf.cell(45, 5, sanitize_text(str(row[0])), border=1, fill=True)
+            
+            # Value column
+            pdf.set_font("Helvetica", style="B", size=8)
+            pdf.set_text_color(30, 30, 30)
+            pdf.cell(35, 5, sanitize_text(str(row[1])), border=1, fill=True)
+            
+            # Interpretation
+            pdf.set_font("Helvetica", size=8)
+            pdf.set_text_color(100, 100, 100)
+            pdf.cell(110, 5, sanitize_text(str(row[2])), border=1, fill=True, new_x="LMARGIN", new_y="NEXT")
+        
+        pdf.ln(5)
 
-    # Save Plotly figs to temp PNGs via Kaleido
-    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f_vol:
-        vol_path = f_vol.name
-    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f_term:
-        term_path = f_term.name
+    # --- GRAPHS (SIDE-BY-SIDE) ---
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f_vol: vol_path = f_vol.name
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f_term: term_path = f_term.name
 
     try:
-        # Resize fig prior to export to fit PDF nicely
-        fig_vol.update_layout(width=800, height=450, margin=dict(l=20, r=20, t=40, b=20))
-        fig_term.update_layout(width=800, height=450, margin=dict(l=20, r=20, t=40, b=20))
+        # Export plots a bit wider to look crisp side-by-side
+        if fig_vol:
+            fig_vol.update_layout(width=700, height=450, margin=dict(l=10, r=10, t=30, b=10))
+            fig_vol.write_image(vol_path, engine="kaleido", scale=2)
+        if fig_term:
+            fig_term.update_layout(width=700, height=450, margin=dict(l=10, r=10, t=30, b=10))
+            fig_term.write_image(term_path, engine="kaleido", scale=2)
         
-        fig_vol.write_image(vol_path, engine="kaleido", scale=2)
-        fig_term.write_image(term_path, engine="kaleido", scale=2)
+        # Side by side drawing
+        # Get current Y position
+        y_before_img = pdf.get_y()
         
-        # Calculate width to fit page
-        # A4 width is 210mm. Margins are 10mm each side -> 190mm usable width.
-        pdf.image(vol_path, w=190)
-        pdf.ln(5)
-        pdf.image(term_path, w=190)
-        
+        if fig_vol and os.path.exists(vol_path):
+            pdf.image(vol_path, x=10, y=y_before_img, w=93)
+            
+        if fig_term and os.path.exists(term_path):
+            pdf.image(term_path, x=107, y=y_before_img, w=93)
+            
     finally:
-        # Clean up temp files
-        if os.path.exists(vol_path):
-            os.remove(vol_path)
-        if os.path.exists(term_path):
-            os.remove(term_path)
+        if os.path.exists(vol_path): os.remove(vol_path)
+        if os.path.exists(term_path): os.remove(term_path)
 
-    # Output to bytearray
     return bytes(pdf.output())

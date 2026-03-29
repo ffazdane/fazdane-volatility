@@ -843,6 +843,7 @@ with tab3:
         ("Liquidity",           liq_label,                                     "ATM options bid-ask, OI, volume"),
         ("Expected Move",       f"${exp_move:.2f} (±{exp_move/current_price*100:.1f}%)", f"${lower_range:.2f} – ${upper_range:.2f}"),
         ("Options Expiry Used", best_expiry if best_expiry else "N/A",        f"~{actual_dte}DTE" if actual_dte else ""),
+        ("Earnings Date", f"{days_to_earnings} Days" if days_to_earnings is not None else "N/A", "Upcoming earnings risk"),
     ]
     table_html = """
     <table style="width:100%;border-collapse:collapse;">
@@ -945,7 +946,7 @@ with tab3:
                 try:
                     pdf_bytes = generate_pdf_report(
                         display_ticker, _ticker_name, current_price, 
-                        result, fig, fig_ts
+                        result, fig, fig_ts, table_rows
                     )
                     st.session_state.pdf_bytes = pdf_bytes
                 except Exception as e:
