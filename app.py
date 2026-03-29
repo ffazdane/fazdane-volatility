@@ -150,6 +150,16 @@ def make_badge(text, style="gray"):
             f'font-size:0.75rem;font-weight:700;letter-spacing:.5px;border:1px solid {fg}55;">'
             f'{text}</span>')
 
+def panel_intro(ticker, heading, description):
+    """Render a concise ticker-contextual subtitle beneath a panel title."""
+    return (
+        f'<p style="font-size:0.78rem;color:#8B9CB6;margin:-4px 0 14px 0;'
+        f'line-height:1.55;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.05);">'
+        f'<span style="color:#CDD5E0;font-weight:600;">{ticker}</span>'
+        f'<span style="color:rgba(0,173,181,0.8);"> · {heading}</span>'
+        f' — {description}</p>'
+    )
+
 # ─────────────────────────────────────────────
 # DATA FUNCTIONS
 # ─────────────────────────────────────────────
@@ -655,6 +665,7 @@ with tab2:
     with row1a:
         st.markdown('<div class="panel-card">', unsafe_allow_html=True)
         st.markdown('<p class="panel-title">📐 IV vs HV Spread</p>', unsafe_allow_html=True)
+        st.markdown(panel_intro(display_ticker, "IV vs HV Spread", "Compares at-the-money implied volatility against 20-day realized historical volatility. A positive spread indicates options are overpriced relative to actual price movement — the primary edge for premium sellers."), unsafe_allow_html=True)
         sc = st.columns(3)
         sc[0].metric("ATM IV",  f"{atm_iv:.1f}%"      if atm_iv      else "N/A")
         sc[1].metric("20D HV",  f"{hv20:.1f}%")
@@ -669,6 +680,7 @@ with tab2:
     with row1b:
         st.markdown('<div class="panel-card">', unsafe_allow_html=True)
         st.markdown('<p class="panel-title">🌡️ Volatility Risk — VIX / VVIX</p>', unsafe_allow_html=True)
+        st.markdown(panel_intro(display_ticker, "Market Volatility Risk", "Monitors the CBOE VIX (fear gauge) and VVIX (volatility-of-volatility). Elevated VIX percentile signals broad market stress, increasing tail risk for short premium positions."), unsafe_allow_html=True)
         vc = st.columns(3)
         vc[0].metric("VIX",             f"{vix_current:.2f}" if vix_current else "N/A")
         vc[1].metric("VIX 52W Pct",    f"{vix_pct:.0f}%"    if vix_pct    else "N/A")
@@ -690,6 +702,7 @@ with tab2:
     # Term Structure
     st.markdown('<div class="panel-card">', unsafe_allow_html=True)
     st.markdown('<p class="panel-title">📈 IV Term Structure</p>', unsafe_allow_html=True)
+    st.markdown(panel_intro(display_ticker, "IV Term Structure", "Plots implied volatility across all available expiration dates. A normal contango curve (rising IV over time) supports time-decay selling; backwardation signals near-term stress and warrants reduced position sizing."), unsafe_allow_html=True)
     if term_structure:
         ts_df  = pd.DataFrame(term_structure)
         fig_ts = go.Figure()
@@ -720,6 +733,7 @@ with tab2:
     with skew_col:
         st.markdown('<div class="panel-card">', unsafe_allow_html=True)
         st.markdown('<p class="panel-title">🎢 Skew Analysis</p>', unsafe_allow_html=True)
+        st.markdown(panel_intro(display_ticker, "Volatility Skew", "Compares OTM put IV, ATM IV, and OTM call IV to detect directional demand imbalances. Elevated put skew means the market is pricing downside protection at a premium, which informs which side of the market offers better edge."), unsafe_allow_html=True)
         sk = st.columns(3)
         sk[0].metric("OTM Put IV (−5%)", f"{otm_put_iv:.1f}%"  if otm_put_iv  else "N/A")
         sk[1].metric("ATM IV",           f"{atm_iv_skew:.1f}%" if atm_iv_skew else "N/A")
@@ -737,6 +751,7 @@ with tab2:
     with liq_col:
         st.markdown('<div class="panel-card">', unsafe_allow_html=True)
         st.markdown('<p class="panel-title">💧 Liquidity Score (ATM Options)</p>', unsafe_allow_html=True)
+        st.markdown(panel_intro(display_ticker, "Options Liquidity", "Evaluates execution quality based on ATM bid-ask spread tightness, open interest depth, and daily volume. Poor liquidity erodes theoretical edge through slippage and wide fills."), unsafe_allow_html=True)
         st.markdown(f"<br>{make_badge(liq_label, liq_style)}<br><br>", unsafe_allow_html=True)
         if liq_detail:
             for k, v in liq_detail.items():
@@ -751,6 +766,7 @@ with tab2:
     # Event Risk
     st.markdown('<div class="panel-card">', unsafe_allow_html=True)
     st.markdown('<p class="panel-title">📅 Event Risk</p>', unsafe_allow_html=True)
+    st.markdown(panel_intro(display_ticker, "Event Risk Calendar", "Identifies upcoming earnings dates and active macro events (Fed decisions, CPI, etc.). Implied volatility typically inflates ahead of known events and collapses after — timing entries around event risk is critical for premium sellers."), unsafe_allow_html=True)
     ev1, ev2 = st.columns(2)
     with ev1:
         if earnings_date:
@@ -779,6 +795,7 @@ with tab3:
     # Directional Filter
     st.markdown('<div class="panel-card">', unsafe_allow_html=True)
     st.markdown('<p class="panel-title">🧭 Directional Filter</p>', unsafe_allow_html=True)
+    st.markdown(panel_intro(display_ticker, "Directional Trend Filter", "Classifies the current price trend using the 20-day and 50-day simple moving averages. Trend alignment is used to select the appropriate directional side for credit spreads and to assess suitability for non-directional strategies."), unsafe_allow_html=True)
     df1, df2, df3, df4 = st.columns(4)
     df1.metric("Current Price", f"${current_price:,.2f}")
     df2.metric("SMA 20",        f"${sma20.iloc[-1]:,.2f}" if not pd.isna(sma20.iloc[-1]) else "N/A")
@@ -796,6 +813,7 @@ with tab3:
     # Full Decision Table
     st.markdown('<div class="panel-card">', unsafe_allow_html=True)
     st.markdown('<p class="panel-title">📋 Full Metrics Decision Table</p>', unsafe_allow_html=True)
+    st.markdown(panel_intro(display_ticker, "Comprehensive Metrics Breakdown", "A transparent log of every volatility, options, and market structure input used by the Strategy Engine — including current values and their interpretation. Use this table to understand the full rationale behind any strategy recommendation."), unsafe_allow_html=True)
     table_rows = [
         ("Last Price",          f"${current_price:,.2f}",                      "Current market price"),
         ("ATM Implied Vol",     f"{atm_iv:.1f}%" if atm_iv else "N/A",        "Market's forward vol expectation"),
@@ -832,6 +850,7 @@ with tab3:
     # Final Decision Box
     st.markdown('<div class="panel-card">', unsafe_allow_html=True)
     st.markdown('<p class="panel-title">🎯 Strategy Decision Engine</p>', unsafe_allow_html=True)
+    st.markdown(panel_intro(display_ticker, "Algorithmic Strategy Output", "Synthesizes HV Rank, IV premium, term structure shape, price trend, skew, liquidity, and event risk into a single actionable recommendation. Includes strategy type, confidence level, target DTE, and strike placement guidance."), unsafe_allow_html=True)
 
     conf_color = {"High": "#52D68A", "Medium": "#FFD700", "Low": "#FF6B6B", "N/A": "#9B9B9B"}.get(result["confidence"], "#9B9B9B")
     box_style  = {"green": "rgba(82,214,138,0.08)", "yellow": "rgba(255,215,0,0.08)", "red": "rgba(255,107,107,0.08)", "gray": "rgba(180,180,180,0.05)"}.get(result["badge_style"], "rgba(0,0,0,0)")
@@ -860,6 +879,7 @@ with tab3:
     # Excel Export
     st.markdown('<div class="panel-card">', unsafe_allow_html=True)
     st.markdown('<p class="panel-title">📥 Export to Excel</p>', unsafe_allow_html=True)
+    st.markdown(panel_intro(display_ticker, "Data Export", "Downloads the full analysis as a structured Excel workbook containing the volatility summary, price history, and strategy output — suitable for trade journaling, compliance records, or further quantitative analysis."), unsafe_allow_html=True)
     try:
         summary_data = {
             "Metric": [r[0] for r in table_rows],
