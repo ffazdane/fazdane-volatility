@@ -821,7 +821,13 @@ with tab3:
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             summary_df.to_excel(writer, sheet_name="Volatility Summary", index=False)
-            df.tail(252).reset_index().to_excel(writer, sheet_name="Price History", index=False)
+            
+            # yfinance returns timezone-aware dates, which break Excel/openpyxl
+            price_hist = df.tail(252).reset_index()
+            if "Date" in price_hist.columns and pd.api.types.is_datetime64_any_dtype(price_hist["Date"]):
+                price_hist["Date"] = price_hist["Date"].dt.tz_localize(None)
+            price_hist.to_excel(writer, sheet_name="Price History", index=False)
+            
             strategy_df = pd.DataFrame([{
                 "Strategy": result["strategy"],
                 "Confidence": result["confidence"],
@@ -840,5 +846,6 @@ with tab3:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     except Exception as e:
-        st.info("Install `openpyxl` to enable Excel export: `pip install openpyxl`")
+        st.error(f"Error generating Excel file: {e}")
+        st.info("Make sure 'openpyxl' is installed: pip install openpyxl")
     st.markdown('</div>', unsafe_allow_html=True)
