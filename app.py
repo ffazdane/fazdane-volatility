@@ -173,6 +173,19 @@ def get_price_data(ticker, start, end):
     except:
         return None
 
+@st.cache_data(ttl=86400, show_spinner=False)
+def get_company_name(ticker):
+    """Fetch the official company/ETF short name from Yahoo Finance."""
+    try:
+        info = yf.Ticker(ticker).info
+        name = info.get("shortName") or info.get("longName") or ""
+        if name:
+            # Format: "Avis Budget Group, Inc. (CAR)"
+            return f"{name} ({ticker})"
+        return ""
+    except:
+        return ""
+
 @st.cache_data(show_spinner=False)
 def get_vix_data(start, end):
     try:
@@ -484,6 +497,8 @@ st.title("📈 FazDane Analytics: Volatility Engine")
 st.markdown("*Professional options premium selling decision platform*")
 b1, b2 = st.columns([1, 6])
 _ticker_name = TICKER_NAMES.get(display_ticker, "")
+if not _ticker_name:
+    _ticker_name = get_company_name(data_ticker)
 _name_suffix  = f" — {_ticker_name}" if _ticker_name else ""
 with b1: st.markdown(f"### {display_ticker}")
 with b2: st.info(f"**{type_icon} {asset_type}**  |  {proxy_note if proxy_note else f'Ticker: `{data_ticker}`'}{_name_suffix}")
