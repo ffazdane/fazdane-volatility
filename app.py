@@ -1,8 +1,10 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import yfinance as yf
 import plotly.graph_objects as go
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+import io
 
 # ─────────────────────────────────────────────
 # PAGE CONFIG
@@ -10,232 +12,80 @@ from datetime import datetime, timedelta
 st.set_page_config(
     page_title="FazDane Analytics | Volatility Engine",
     layout="wide",
-    page_icon="📈"
+    page_icon="📈",
+    initial_sidebar_state="expanded"
 )
 
 # ─────────────────────────────────────────────
-# CUSTOM CSS
+# CSS
 # ─────────────────────────────────────────────
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+.main { background-color: #0E1117; }
+h1 { color: #00ADB5 !important; }
 
-    html, body, [class*="css"] {
-        font-family: 'Inter', sans-serif;
-    }
-    .main { background-color: #0E1117; }
-    h1 { color: #00ADB5 !important; }
+/* Tabs */
+button[data-baseweb="tab"] { font-size: 0.88rem !important; font-weight: 600 !important; color: #8B9CB6 !important; padding: 10px 20px !important; }
+button[data-baseweb="tab"][aria-selected="true"] { color: #00ADB5 !important; }
 
-    div[data-testid="stMetricValue"] {
-        color: #00ADB5;
-        font-size: 1.4rem !important;
-        font-weight: 600;
-    }
-    div[data-testid="stMetricLabel"] {
-        color: #8B9CB6;
-        font-size: 0.78rem !important;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
+/* Metrics */
+div[data-testid="stMetricValue"] { color: #00ADB5; font-size: 1.25rem !important; font-weight: 700; }
+div[data-testid="stMetricLabel"] { color: #8B9CB6; font-size: 0.72rem !important; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+div[data-testid="stMetric"] { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 14px 18px; }
+div[data-testid="stMetricDelta"] svg { display: none; }
 
-    /* Asset info banner */
-    .asset-banner {
-        background: linear-gradient(135deg, rgba(0,173,181,0.12), rgba(0,173,181,0.05));
-        border: 1px solid rgba(0,173,181,0.3);
-        border-radius: 10px;
-        padding: 12px 20px;
-        margin-bottom: 24px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-    .asset-ticker {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: #00ADB5;
-    }
-    .asset-badge {
-        background: rgba(0,173,181,0.2);
-        color: #00ADB5;
-        font-size: 0.72rem;
-        font-weight: 600;
-        padding: 3px 10px;
-        border-radius: 20px;
-        letter-spacing: 0.5px;
-        text-transform: uppercase;
-    }
-    .asset-proxy {
-        background: rgba(248,177,149,0.2);
-        color: #F8B195;
-        font-size: 0.72rem;
-        font-weight: 600;
-        padding: 3px 10px;
-        border-radius: 20px;
-        letter-spacing: 0.5px;
-        text-transform: uppercase;
-    }
-    .asset-note {
-        color: #8B9CB6;
-        font-size: 0.8rem;
-    }
+/* Panel card */
+.panel-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 20px 24px; margin-bottom: 16px; }
+.panel-title { font-size: 0.72rem; font-weight: 700; color: #00ADB5; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 14px; border-bottom: 1px solid rgba(0,173,181,0.15); padding-bottom: 6px; }
 
-    /* Quick buttons */
-    div[data-testid="column"] button {
-        width: 100%;
-        border-radius: 8px !important;
-        font-size: 0.78rem !important;
-        font-weight: 600 !important;
-        padding: 4px 8px !important;
-        background: rgba(0,173,181,0.08) !important;
-        border: 1px solid rgba(0,173,181,0.25) !important;
-        color: #00ADB5 !important;
-        transition: all 0.15s ease !important;
-    }
-    div[data-testid="column"] button:hover {
-        background: rgba(0,173,181,0.2) !important;
-        border-color: rgba(0,173,181,0.6) !important;
-    }
+/* Decision box */
+.decision-box { background: linear-gradient(135deg, rgba(0,173,181,0.12), rgba(0,100,110,0.06)); border: 1px solid rgba(0,173,181,0.4); border-radius: 16px; padding: 30px 36px; text-align: center; margin-top: 16px; }
+.decision-strategy { font-size: 1.8rem; font-weight: 800; color: #00ADB5; margin-bottom: 6px; }
+.decision-conf { font-size: 0.9rem; color: #8B9CB6; margin-bottom: 20px; }
 
-    /* Sidebar styling */
-    section[data-testid="stSidebar"] {
-        background-color: #161B22 !important;
-        border-right: 1px solid rgba(255,255,255,0.06);
-    }
-    section[data-testid="stSidebar"] * {
-        color: #CDD5E0;
-    }
-
-    /* Sidebar section labels */
-    .sidebar-section {
-        font-size: 0.68rem;
-        font-weight: 700;
-        color: #00ADB5 !important;
-        text-transform: uppercase;
-        letter-spacing: 1.5px;
-        margin: 18px 0 4px 0;
-        border-bottom: 1px solid rgba(0,173,181,0.2);
-        padding-bottom: 4px;
-    }
-
-    /* Sidebar input fields - dark background */
-    section[data-testid="stSidebar"] input,
-    section[data-testid="stSidebar"] textarea {
-        background-color: #0E1117 !important;
-        color: #E0E6F0 !important;
-        border: 1px solid rgba(255,255,255,0.12) !important;
-        border-radius: 6px !important;
-    }
-
-    /* Date input containers */
-    section[data-testid="stSidebar"] div[data-baseweb="input"] {
-        background-color: #0E1117 !important;
-        border: 1px solid rgba(255,255,255,0.12) !important;
-        border-radius: 6px !important;
-    }
-    section[data-testid="stSidebar"] div[data-baseweb="base-input"] {
-        background-color: #0E1117 !important;
-    }
-
-    /* Selectbox */
-    section[data-testid="stSidebar"] div[data-baseweb="select"] > div {
-        background-color: #0E1117 !important;
-        border: 1px solid rgba(255,255,255,0.12) !important;
-        color: #E0E6F0 !important;
-    }
-
-    /* Slider accent color - teal */
-    section[data-testid="stSidebar"] div[data-testid="stSlider"] div[role="slider"] {
-        background-color: #00ADB5 !important;
-        border-color: #00ADB5 !important;
-    }
-
-    /* Quick buttons */
-    div[data-testid="column"] button {
-        width: 100%;
-        border-radius: 8px !important;
-        font-size: 0.78rem !important;
-        font-weight: 600 !important;
-        padding: 4px 8px !important;
-        background: rgba(0,173,181,0.08) !important;
-        border: 1px solid rgba(0,173,181,0.25) !important;
-        color: #00ADB5 !important;
-        transition: all 0.15s ease !important;
-    }
-    div[data-testid="column"] button:hover {
-        background: rgba(0,173,181,0.2) !important;
-        border-color: rgba(0,173,181,0.6) !important;
-    }
-
-    /* Metric cards */
-    div[data-testid="stMetricValue"] {
-        color: #00ADB5;
-        font-size: 1.4rem !important;
-        font-weight: 600;
-    }
-    div[data-testid="stMetricLabel"] {
-        color: #8B9CB6;
-        font-size: 0.78rem !important;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    div[data-testid="stMetric"] {
-        background: rgba(255,255,255,0.03);
-        border: 1px solid rgba(255,255,255,0.07);
-        border-radius: 10px;
-        padding: 14px 18px;
-    }
-    div[data-testid="stMetricDelta"] svg { display: none; }
-
-    /* Main area */
-    .main { background-color: #0E1117; }
-    h1 { color: #00ADB5 !important; }
+/* Sidebar */
+section[data-testid="stSidebar"] { background-color: #161B22 !important; border-right: 1px solid rgba(255,255,255,0.06); }
+section[data-testid="stSidebar"] * { color: #CDD5E0; }
+.sidebar-section { font-size: 0.68rem; font-weight: 700; color: #00ADB5 !important; text-transform: uppercase; letter-spacing: 1.5px; margin: 18px 0 4px 0; border-bottom: 1px solid rgba(0,173,181,0.2); padding-bottom: 4px; }
+section[data-testid="stSidebar"] input, section[data-testid="stSidebar"] textarea { background-color: #0E1117 !important; color: #E0E6F0 !important; border: 1px solid rgba(255,255,255,0.12) !important; border-radius: 6px !important; }
+section[data-testid="stSidebar"] div[data-baseweb="input"] { background-color: #0E1117 !important; border: 1px solid rgba(255,255,255,0.12) !important; border-radius: 6px !important; }
+section[data-testid="stSidebar"] div[data-baseweb="base-input"] { background-color: #0E1117 !important; }
+section[data-testid="stSidebar"] div[data-baseweb="select"] > div { background-color: #0E1117 !important; border: 1px solid rgba(255,255,255,0.12) !important; color: #E0E6F0 !important; }
+section[data-testid="stSidebar"] div[data-testid="stSlider"] div[role="slider"] { background-color: #00ADB5 !important; border-color: #00ADB5 !important; }
+div[data-testid="column"] button { width: 100%; border-radius: 8px !important; font-size: 0.78rem !important; font-weight: 600 !important; padding: 4px 8px !important; background: rgba(0,173,181,0.08) !important; border: 1px solid rgba(0,173,181,0.25) !important; color: #00ADB5 !important; transition: all 0.15s ease !important; }
+div[data-testid="column"] button:hover { background: rgba(0,173,181,0.2) !important; border-color: rgba(0,173,181,0.6) !important; }
 </style>
 """, unsafe_allow_html=True)
 
-
 # ─────────────────────────────────────────────
-# TICKER CONSTANTS
+# CONSTANTS
 # ─────────────────────────────────────────────
-INDEX_PROXIES = {
-    "SPX": "SPY",
-    "NDX": "QQQ",
-    "RUT": "IWM",
-}
-
+INDEX_PROXIES = {"SPX": "SPY", "NDX": "QQQ", "RUT": "IWM"}
 ASSET_TYPES = {
     "SPX": "Index", "NDX": "Index", "RUT": "Index",
-    "AAPL": "Stock", "MSFT": "Stock", "NVDA": "Stock",
-    "AMZN": "Stock", "GOOGL": "Stock", "META": "Stock", "TSLA": "Stock",
+    "AAPL": "Stock", "MSFT": "Stock", "NVDA": "Stock", "AMZN": "Stock",
+    "GOOGL": "Stock", "META": "Stock", "TSLA": "Stock",
     "SPY": "ETF", "QQQ": "ETF", "IWM": "ETF", "DIA": "ETF",
-    "XLE": "ETF", "XLF": "ETF", "XLK": "ETF",
-    "SMH": "ETF", "TLT": "ETF", "GLD": "ETF",
-    "AMD": "Stock", "NFLX": "Stock", "COIN": "Stock",
-    "BA": "Stock", "JPM": "Stock",
+    "XLE": "ETF", "XLF": "ETF", "XLK": "ETF", "SMH": "ETF", "TLT": "ETF", "GLD": "ETF",
+    "AMD": "Stock", "NFLX": "Stock", "COIN": "Stock", "BA": "Stock", "JPM": "Stock",
 }
-
 DROPDOWN_OPTIONS = {
     "── 📊 Indices ──────────────────": ["SPX", "NDX", "RUT"],
     "── 🚀 Mag 7 ────────────────────": ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA"],
     "── 💰 Premium Selling Favorites ─": ["SPY", "QQQ", "IWM", "DIA", "XLE", "XLF", "XLK", "SMH", "TLT", "GLD"],
     "── ⚡ High IV / Active Options ──": ["AMD", "NFLX", "COIN", "BA", "JPM"],
 }
-
-# Flatten for selectbox (with group headers as disabled separators)
 FLAT_OPTIONS = []
-OPTION_LABELS = []
-for group, tickers in DROPDOWN_OPTIONS.items():
-    FLAT_OPTIONS.append(group)
-    OPTION_LABELS.append(group)
-    for t in tickers:
-        FLAT_OPTIONS.append(t)
-        OPTION_LABELS.append(t)
-
+for _g, _ts in DROPDOWN_OPTIONS.items():
+    FLAT_OPTIONS.append(_g)
+    for _t in _ts:
+        FLAT_OPTIONS.append(_t)
 QUICK_BUTTONS = ["SPY", "QQQ", "TSLA", "AAPL", "NVDA", "GLD"]
 
 # ─────────────────────────────────────────────
-# SESSION STATE INIT
+# SESSION STATE
 # ─────────────────────────────────────────────
 if "dropdown_select" not in st.session_state:
     st.session_state.dropdown_select = "SPY"
@@ -243,299 +93,752 @@ if "custom_ticker" not in st.session_state:
     st.session_state.custom_ticker = ""
 
 # ─────────────────────────────────────────────
-# GET SELECTED TICKER (modular function)
+# HELPER: BADGE
 # ─────────────────────────────────────────────
-def get_selected_ticker(dropdown_val: str, custom_input: str, use_proxy: bool) -> tuple:
-    """
-    Returns (display_ticker, data_ticker, note)
-    display_ticker: what the user selected (e.g. SPX)
-    data_ticker:    what we actually query (e.g. SPY if proxy enabled)
-    note:           human-readable proxy note
-    """
-    raw = custom_input.strip().upper() if custom_input.strip() else dropdown_val.strip()
-
-    # Skip group headers
-    if raw.startswith("──"):
-        raw = "SPY"
-
-    display = raw
-    note = ""
-
-    if use_proxy and raw in INDEX_PROXIES:
-        data_ticker = INDEX_PROXIES[raw]
-        note = f"Using {data_ticker} as ETF proxy for {raw}"
-    elif not use_proxy and raw == "SPX":
-        data_ticker = "^GSPC"
-        note = "Using ^GSPC (S&P 500 Index)"
-    elif not use_proxy and raw == "NDX":
-        data_ticker = "^NDX"
-        note = "Using ^NDX (Nasdaq-100 Index)"
-    elif not use_proxy and raw == "RUT":
-        data_ticker = "^RUT"
-        note = "Using ^RUT (Russell 2000 Index)"
-    else:
-        data_ticker = raw
-
-    return display, data_ticker, note
+def make_badge(text, style="gray"):
+    colors = {
+        "green":  ("rgba(50,200,100,0.18)",  "#52D68A"),
+        "yellow": ("rgba(255,210,50,0.18)",   "#FFD700"),
+        "red":    ("rgba(220,50,50,0.18)",    "#FF6B6B"),
+        "orange": ("rgba(255,150,50,0.18)",   "#FFB347"),
+        "blue":   ("rgba(0,173,181,0.18)",    "#00ADB5"),
+        "gray":   ("rgba(180,180,180,0.12)",  "#9B9B9B"),
+    }
+    bg, fg = colors.get(style, colors["gray"])
+    return (f'<span style="background:{bg};color:{fg};padding:3px 12px;border-radius:20px;'
+            f'font-size:0.75rem;font-weight:700;letter-spacing:.5px;border:1px solid {fg}55;">'
+            f'{text}</span>')
 
 # ─────────────────────────────────────────────
 # DATA FUNCTIONS
 # ─────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
-def load_data(ticker, start, end):
+def get_price_data(ticker, start, end):
     try:
-        stock = yf.Ticker(ticker)
-        data = stock.history(start=start, end=end)
-        if data is None or data.empty:
-            return None
-        return data
-    except Exception:
+        data = yf.Ticker(ticker).history(start=start, end=end)
+        return data if (data is not None and not data.empty) else None
+    except:
+        return None
+
+@st.cache_data(show_spinner=False)
+def get_vix_data(start, end):
+    try:
+        d = yf.Ticker("^VIX").history(start=start, end=end)["Close"]
+        return d if (d is not None and not d.empty) else None
+    except:
         return None
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def get_current_iv(ticker, dte_target=30):
-    """Fetch current IV for the options expiration closest to dte_target days."""
+def get_vvix():
+    try:
+        d = yf.Ticker("^VVIX").history(period="5d")["Close"]
+        return float(d.iloc[-1]) if len(d) > 0 else None
+    except:
+        return None
+
+# ─────────────────────────────────────────────
+# CALCULATION FUNCTIONS
+# ─────────────────────────────────────────────
+def calculate_hv(close_series, window=20):
+    return close_series.pct_change().rolling(window=window).std() * np.sqrt(252) * 100
+
+def calculate_hv_rank(hv_series, window=252):
+    hi  = hv_series.rolling(window=window, min_periods=1).max()
+    lo  = hv_series.rolling(window=window, min_periods=1).min()
+    den = (hi - lo).replace(0, np.nan)
+    return ((hv_series - lo) / den) * 100
+
+def calculate_expected_move(price, iv_pct, dte):
+    return price * (iv_pct / 100) * np.sqrt(dte / 365)
+
+def classify_regime(hvr):
+    if hvr >= 80:   return "EXTREME", "red"
+    elif hvr >= 60: return "HIGH",    "orange"
+    elif hvr >= 30: return "NORMAL",  "yellow"
+    else:           return "LOW",     "green"
+
+def get_trend_label(df, fast=20, slow=50):
+    if len(df) < slow:
+        return "INSUFFICIENT DATA", "gray"
+    sma_f = df["Close"].rolling(fast).mean().iloc[-1]
+    sma_s = df["Close"].rolling(slow).mean().iloc[-1]
+    p = df["Close"].iloc[-1]
+    if p > sma_f > sma_s:   return "UPTREND",     "green"
+    elif p < sma_f < sma_s: return "DOWNTREND",   "red"
+    else:                   return "RANGE-BOUND",  "yellow"
+
+def get_vix_percentile(vix_series):
+    if vix_series is None or len(vix_series) < 5:
+        return None
+    return round((vix_series < vix_series.iloc[-1]).mean() * 100, 1)
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_options_chain(ticker, dte_target=30):
     try:
         stock = yf.Ticker(ticker)
-        expirations = stock.options
-        if not expirations:
+        exps  = stock.options
+        if not exps:
+            return None, None, None, None, None
+        today = date.today()
+        best  = min(exps, key=lambda d: abs((datetime.strptime(d, "%Y-%m-%d").date() - today).days - dte_target))
+        a_dte = (datetime.strptime(best, "%Y-%m-%d").date() - today).days
+        chain = stock.option_chain(best)
+        calls, puts = chain.calls.copy(), chain.puts.copy()
+        price = stock.fast_info["lastPrice"]
+        valid = calls[calls["impliedVolatility"] > 0.01]
+        if valid.empty:
+            return calls, puts, None, best, a_dte
+        idx    = (valid["strike"] - price).abs().idxmin()
+        atm_iv = float(valid.loc[idx, "impliedVolatility"]) * 100
+        return calls, puts, atm_iv, best, a_dte
+    except:
+        return None, None, None, None, None
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_term_structure(ticker):
+    try:
+        stock = yf.Ticker(ticker)
+        exps  = stock.options
+        if not exps:
+            return []
+        price = stock.fast_info["lastPrice"]
+        today = date.today()
+        out   = []
+        for exp in exps[:12]:
+            dte = (datetime.strptime(exp, "%Y-%m-%d").date() - today).days
+            if dte < 3 or dte > 130:
+                continue
+            try:
+                calls = stock.option_chain(exp).calls
+                valid = calls[calls["impliedVolatility"] > 0.01]
+                if valid.empty:
+                    continue
+                idx = (valid["strike"] - price).abs().idxmin()
+                iv  = float(valid.loc[idx, "impliedVolatility"]) * 100
+                out.append({"dte": dte, "iv": iv, "expiry": exp})
+            except:
+                continue
+        return sorted(out, key=lambda x: x["dte"])
+    except:
+        return []
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_skew_data(ticker, dte_target=30):
+    try:
+        stock = yf.Ticker(ticker)
+        exps  = stock.options
+        if not exps:
+            return None, None, None
+        today = date.today()
+        best  = min(exps, key=lambda d: abs((datetime.strptime(d, "%Y-%m-%d").date() - today).days - dte_target))
+        chain = stock.option_chain(best)
+        price = stock.fast_info["lastPrice"]
+        calls = chain.calls[chain.calls["impliedVolatility"] > 0.01].copy()
+        puts  = chain.puts[chain.puts["impliedVolatility"]  > 0.01].copy()
+        if calls.empty:
+            return None, None, None
+        idx    = (calls["strike"] - price).abs().idxmin()
+        atm_iv = float(calls.loc[idx, "impliedVolatility"]) * 100
+        otm_put_iv  = float(puts.loc[(puts["strike"] - price * 0.95).abs().idxmin(), "impliedVolatility"]) * 100 if not puts.empty else None
+        otm_call_iv = float(calls.loc[(calls["strike"] - price * 1.05).abs().idxmin(), "impliedVolatility"]) * 100
+        return otm_put_iv, atm_iv, otm_call_iv
+    except:
+        return None, None, None
+
+def get_liquidity_score(calls, puts, price):
+    try:
+        if calls is None or calls.empty:
+            return "N/A", "gray", {}
+        valid = calls[calls["impliedVolatility"] > 0.01].copy()
+        if valid.empty:
+            return "N/A", "gray", {}
+        row  = valid.loc[(valid["strike"] - price).abs().idxmin()]
+        bid, ask = float(row.get("bid", 0)), float(row.get("ask", 0))
+        mid  = (bid + ask) / 2 if (bid + ask) > 0 else 1
+        sprd = round((ask - bid) / mid * 100, 1) if mid > 0 else 99
+        oi   = int(row.get("openInterest", 0) or 0)
+        vol  = int(row.get("volume", 0) or 0)
+        pts  = (2 if sprd < 5 else 1 if sprd < 10 else 0) + (2 if oi > 1000 else 1 if oi > 200 else 0) + (2 if vol > 500 else 1 if vol > 100 else 0)
+        lbl  = "GOOD" if pts >= 5 else "MODERATE" if pts >= 3 else "POOR"
+        sty  = "green"  if pts >= 5 else "yellow"  if pts >= 3 else "red"
+        return lbl, sty, {"Bid-Ask Spread": f"{sprd}%", "Open Interest": f"{oi:,}", "Volume": f"{vol:,}"}
+    except:
+        return "N/A", "gray", {}
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_earnings_date(ticker):
+    try:
+        cal = yf.Ticker(ticker).calendar
+        if cal is None:
             return None
-
-        # Find the expiration date closest to our DTE target
-        today = datetime.today().date()
-        best_exp = min(
-            expirations,
-            key=lambda d: abs((datetime.strptime(d, "%Y-%m-%d").date() - today).days - dte_target)
-        )
-
-        opt = stock.option_chain(best_exp)
-        calls = opt.calls
-        valid_calls = calls[calls['impliedVolatility'] > 0.01].copy()
-        if valid_calls.empty:
-            return None
-
-        current_price = stock.fast_info['lastPrice']
-        idx = (valid_calls['strike'] - current_price).abs().idxmin()
-        closest_call = valid_calls.loc[idx]
-        return float(closest_call['impliedVolatility']) * 100
-    except Exception:
+        if isinstance(cal, dict):
+            ed = cal.get("Earnings Date")
+            if ed and len(ed) > 0:
+                return ed[0].date() if hasattr(ed[0], "date") else ed[0]
+        elif isinstance(cal, pd.DataFrame) and "Earnings Date" in cal.columns:
+            return cal["Earnings Date"].iloc[0]
         return None
+    except:
+        return None
+
+# ─────────────────────────────────────────────
+# STRATEGY ENGINE
+# ─────────────────────────────────────────────
+def strategy_engine(hvr, atm_iv, hv20, trend_label, skew_label,
+                    term_shape, vix_pct, days_to_earnings, liquidity_label, iv_hv_diff):
+    warnings_list = []
+
+    if days_to_earnings is not None and days_to_earnings < 14:
+        warnings_list.append(f"⚠️ Earnings in **{days_to_earnings} days** — elevated event risk.")
+    if liquidity_label == "POOR":
+        warnings_list.append("⚠️ Poor liquidity — wide bid-ask spreads may erode edge.")
+    if vix_pct is not None and vix_pct > 80:
+        warnings_list.append("⚠️ VIX in panic zone — prefer defined-risk spreads only.")
+
+    if hvr is None or atm_iv is None:
+        return {"strategy": "INSUFFICIENT DATA", "confidence": "N/A", "dte_rec": "—",
+                "strike_note": "—", "reason": "Key data unavailable.", "warnings": warnings_list, "badge_style": "gray"}
+
+    diff = iv_hv_diff if iv_hv_diff else 0
+
+    if hvr < 20:
+        return {"strategy": "AVOID SELLING OPTIONS", "confidence": "High", "dte_rec": "—",
+                "strike_note": "Wait for volatility expansion",
+                "reason": "HV Rank < 20 — premium is historically cheap. Poor risk/reward for sellers.",
+                "warnings": warnings_list, "badge_style": "red"}
+
+    if hvr >= 60 and diff > 2 and term_shape == "Contango" and trend_label == "RANGE-BOUND":
+        return {"strategy": "SELL IRON CONDOR", "confidence": "High" if hvr >= 75 else "Medium",
+                "dte_rec": "30–45 days",
+                "strike_note": "Place short strikes at ±1 Expected Move (≈1 std dev)",
+                "reason": "High HV Rank + IV > HV + Contango + Range-bound. All 4 conditions met. Ideal iron condor setup.",
+                "warnings": warnings_list, "badge_style": "green"}
+
+    if hvr >= 55 and trend_label == "RANGE-BOUND" and term_shape == "Contango":
+        return {"strategy": "SELL STRANGLE", "confidence": "Medium",
+                "dte_rec": "30–45 days",
+                "strike_note": "Place short strikes at ±1 SD (expected move)",
+                "reason": "High HV Rank + range-bound + contango. Market lacks direction — strangle captures premium on both sides.",
+                "warnings": warnings_list, "badge_style": "green"}
+
+    if hvr >= 50 and trend_label == "UPTREND" and skew_label in ["Put Skew High", "Flat Skew"]:
+        return {"strategy": "SELL BULL PUT SPREAD", "confidence": "High" if hvr >= 65 else "Medium",
+                "dte_rec": "21–35 days",
+                "strike_note": "Sell put at -1 SD, buy put 1–2 strikes lower",
+                "reason": "Uptrend + elevated HV Rank + favorable skew. Selling downside premium aligns with directional bias.",
+                "warnings": warnings_list, "badge_style": "green"}
+
+    if hvr >= 50 and trend_label == "DOWNTREND" and skew_label in ["Call Skew High", "Flat Skew"]:
+        return {"strategy": "SELL BEAR CALL SPREAD", "confidence": "Medium",
+                "dte_rec": "21–35 days",
+                "strike_note": "Sell call at +1 SD, buy call 1–2 strikes higher",
+                "reason": "Downtrend + elevated HV Rank. Selling upside call spread aligns with directional bias.",
+                "warnings": warnings_list, "badge_style": "yellow"}
+
+    if hvr >= 70 and term_shape == "Backwardation":
+        return {"strategy": "SELL NEAR-TERM DEFINED RISK", "confidence": "Medium",
+                "dte_rec": "7–21 days",
+                "strike_note": "Use spreads — avoid naked short premium in backwardation",
+                "reason": "Backwardation: near-term IV spike. Sell spreads that expire quickly to capture elevated short-term premium.",
+                "warnings": warnings_list, "badge_style": "yellow"}
+
+    if hvr >= 35:
+        return {"strategy": "SELL CREDIT SPREAD (Directional)", "confidence": "Low",
+                "dte_rec": "30–45 days",
+                "strike_note": "Direction + skew analysis required to choose put vs call spread",
+                "reason": "Moderate HV Rank. Some opportunity exists — use directional bias to choose side.",
+                "warnings": warnings_list, "badge_style": "yellow"}
+
+    return {"strategy": "AVOID SELLING OPTIONS", "confidence": "High", "dte_rec": "—",
+            "strike_note": "—",
+            "reason": "HV Rank below threshold. Premium not elevated enough to justify selling.",
+            "warnings": warnings_list, "badge_style": "red"}
+
+# ─────────────────────────────────────────────
+# TICKER RESOLUTION FUNCTION
+# ─────────────────────────────────────────────
+def get_selected_ticker(dropdown_val, custom_input, use_proxy):
+    raw = custom_input.strip().upper() if custom_input.strip() else dropdown_val.strip()
+    if raw.startswith("──"):
+        raw = "SPY"
+    display, note = raw, ""
+    if use_proxy and raw in INDEX_PROXIES:
+        return display, INDEX_PROXIES[raw], f"Using {INDEX_PROXIES[raw]} as ETF proxy for {raw}"
+    if raw == "SPX": return display, "^GSPC", "Using ^GSPC (S&P 500 Index)"
+    if raw == "NDX": return display, "^NDX",  "Using ^NDX (Nasdaq-100)"
+    if raw == "RUT": return display, "^RUT",  "Using ^RUT (Russell 2000)"
+    return display, raw, ""
 
 # ─────────────────────────────────────────────
 # SIDEBAR
 # ─────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### 📈 FazDane Analytics")
-    st.caption("Volatility Engine v2.0")
+    st.caption("Volatility Engine v3.0")
     st.markdown("---")
 
-    # ── Quick Load Buttons ──
     st.markdown('<p class="sidebar-section">Quick Load</p>', unsafe_allow_html=True)
     qcols = st.columns(3)
     for i, qt in enumerate(QUICK_BUTTONS):
         if qcols[i % 3].button(qt, key=f"quick_{qt}"):
             st.session_state.dropdown_select = qt
-            st.session_state.custom_ticker = ""
+            st.session_state.custom_ticker   = ""
 
     st.markdown("---")
-
-    # ── Ticker Selection ──
     st.markdown('<p class="sidebar-section">Ticker</p>', unsafe_allow_html=True)
-
-    selected_dropdown = st.selectbox(
-        "Select Ticker",
-        options=FLAT_OPTIONS,
-        key="dropdown_select",
-        label_visibility="collapsed",
-    )
-
-    custom_input = st.text_input(
-        "Or Enter Custom Ticker",
-        value=st.session_state.custom_ticker,
-        placeholder="e.g. SHOP, MSTR, UBER...",
-        key="custom_input_field"
-    )
+    st.selectbox("Select Ticker", options=FLAT_OPTIONS, key="dropdown_select", label_visibility="collapsed")
+    custom_input = st.text_input("Or Enter Custom Ticker", value=st.session_state.custom_ticker,
+                                 placeholder="e.g. SHOP, MSTR...", key="custom_input_field")
     st.session_state.custom_ticker = custom_input
-
-    # ── Index Proxy Toggle ──
-    use_proxy = st.toggle("Use ETF Proxy for Indices", value=True,
-                          help="SPX→SPY, NDX→QQQ, RUT→IWM. Enables live options data.")
+    use_proxy = st.toggle("Use ETF Proxy for Indices", value=True, help="SPX→SPY, NDX→QQQ, RUT→IWM")
 
     st.markdown("---")
-
-    # ── Date Range ──
     st.markdown('<p class="sidebar-section">Date Range</p>', unsafe_allow_html=True)
-    col1, col2 = st.columns(2)
-    with col1:
-        start_date = st.date_input("From", value=datetime.today() - timedelta(days=365))
-    with col2:
-        end_date = st.date_input("To", value=datetime.today())
+    c1, c2 = st.columns(2)
+    with c1: start_date = st.date_input("From", value=datetime.today() - timedelta(days=365))
+    with c2: end_date   = st.date_input("To",   value=datetime.today())
 
     st.markdown("---")
-
-    # ── Volatility Parameters ──
     st.markdown('<p class="sidebar-section">Parameters</p>', unsafe_allow_html=True)
-    window = st.slider("HV Window (Days)", min_value=5, max_value=60, value=20,
-                        help="Rolling window for Historical Volatility calculation.")
-    dte_target = st.slider("IV Target DTE (Days)", min_value=7, max_value=90, value=30,
-                           help="Options expiration closest to this DTE will be used for IV.")
+    hv_window  = st.slider("HV Window (Days)",      5,  60, 20)
+    dte_target = st.slider("IV Target DTE (Days)",  7,  90, 30)
+
+    st.markdown("---")
+    st.markdown('<p class="sidebar-section">Event Risk Override</p>', unsafe_allow_html=True)
+    macro_event = st.checkbox("Flag Active Macro Event (Fed, CPI, etc.)", value=False)
 
 # ─────────────────────────────────────────────
 # RESOLVE TICKER
 # ─────────────────────────────────────────────
-raw_dropdown = st.session_state.dropdown_select or "SPY"
-if raw_dropdown.startswith("──"):
-    raw_dropdown = "SPY"
-
-display_ticker, data_ticker, proxy_note = get_selected_ticker(
-    raw_dropdown,
-    st.session_state.custom_ticker,
-    use_proxy
-)
-
-asset_type = ASSET_TYPES.get(display_ticker, "Stock")
+raw_dd = st.session_state.dropdown_select or "SPY"
+if raw_dd.startswith("──"):
+    raw_dd = "SPY"
+display_ticker, data_ticker, proxy_note = get_selected_ticker(raw_dd, st.session_state.custom_ticker, use_proxy)
+asset_type  = ASSET_TYPES.get(display_ticker, "Stock")
+type_icon   = {"Index": "📊", "ETF": "💰", "Stock": "🚀"}.get(asset_type, "📈")
 
 # ─────────────────────────────────────────────
 # HEADER
 # ─────────────────────────────────────────────
 st.title("📈 FazDane Analytics: Volatility Engine")
-st.markdown("Professional volatility analysis platform powered by **FazDane Analytics**.")
+st.markdown("*Professional options premium selling decision platform*")
+b1, b2 = st.columns([1, 6])
+with b1: st.markdown(f"### {display_ticker}")
+with b2: st.info(f"**{type_icon} {asset_type}**  |  {proxy_note if proxy_note else f'Ticker: `{data_ticker}`'}")
 
-# Asset Info Banner — using native Streamlit components
-type_icon = {"Index": "📊", "ETF": "💰", "Stock": "🚀"}.get(asset_type, "📈")
-banner_cols = st.columns([1, 6])
-with banner_cols[0]:
-    st.markdown(f"### {display_ticker}")
-with banner_cols[1]:
-    label_line = f"**{type_icon} {asset_type}**"
-    if proxy_note:
-        label_line += f"  |  🔁 {proxy_note}"
-    else:
-        label_line += f"  |  Ticker: `{data_ticker}`"
-    st.info(label_line)
+st.markdown("---")
 
 # ─────────────────────────────────────────────
-# MAIN ENGINE
+# LOAD ALL DATA
 # ─────────────────────────────────────────────
-if data_ticker:
-    with st.spinner(f"Fetching price data for {data_ticker}..."):
-        df = load_data(data_ticker, start_date, end_date)
+with st.spinner(f"Loading price data for {data_ticker}..."):
+    df = get_price_data(data_ticker, start_date, end_date)
 
-    if df is not None and not df.empty:
-        # ── Calculations ──
-        df['Return'] = df['Close'].pct_change()
-        df['HV'] = df['Return'].rolling(window=window).std() * (252 ** 0.5) * 100
+if df is None or df.empty:
+    st.warning(f"⚠️ No price data found for **{data_ticker}**. Check ticker or date range.")
+    st.stop()
 
-        # Historical Volatility Rank (HVR) — 252-day rolling
-        df['Vol_High'] = df['HV'].rolling(window=252, min_periods=1).max()
-        df['Vol_Low']  = df['HV'].rolling(window=252, min_periods=1).min()
-        range_denom = (df['Vol_High'] - df['Vol_Low'])
-        df['HVR'] = ((df['HV'] - df['Vol_Low']) / range_denom.replace(0, float('nan'))) * 100
+# Price calculations
+current_price = float(df["Close"].iloc[-1])
+hv20_s  = calculate_hv(df["Close"], 20)
+hv30_s  = calculate_hv(df["Close"], 30)
+hvs     = calculate_hv(df["Close"], hv_window)
+hvr_s   = calculate_hv_rank(hvs)
+hv20    = float(hv20_s.iloc[-1])
+hv30    = float(hv30_s.iloc[-1])
+hvr     = float(hvr_s.iloc[-1]) if not pd.isna(hvr_s.iloc[-1]) else 0.0
+sma20   = df["Close"].rolling(20).mean()
+sma50   = df["Close"].rolling(50).mean()
+regime_label, regime_style = classify_regime(hvr)
+trend_label,  trend_style  = get_trend_label(df)
 
-        latest_close = float(df['Close'].iloc[-1])
-        latest_hv    = df['HV'].iloc[-1]
-        latest_hvr   = df['HVR'].iloc[-1]
+# Options + market data (with individual spinners)
+with st.spinner("Fetching options chain..."):
+    calls, puts, atm_iv, best_expiry, actual_dte = get_options_chain(data_ticker, dte_target)
 
-        with st.spinner("Fetching Implied Volatility..."):
-            current_iv = get_current_iv(data_ticker, dte_target)
+with st.spinner("Building term structure..."):
+    term_structure = get_term_structure(data_ticker)
 
-        # ── HVR Signal Helper ──
-        def hvr_signal(hvr):
-            if pd.isna(hvr): return "N/A"
-            if hvr >= 80:    return "🔴 High"
-            if hvr >= 50:    return "🟡 Elevated"
-            if hvr >= 20:    return "🟢 Low"
-            return "🟢 Very Low"
+with st.spinner("Fetching skew data..."):
+    otm_put_iv, atm_iv_skew, otm_call_iv = get_skew_data(data_ticker, dte_target)
 
-        # ── Metric Row ──
-        m1, m2, m3, m4 = st.columns(4)
+with st.spinner("Fetching VIX/VVIX..."):
+    vix_data = get_vix_data(start_date, end_date)
+    vvix_val = get_vvix()
 
-        m1.metric("Last Price", f"${latest_close:.2f}")
+earnings_date    = get_earnings_date(data_ticker)
+today_d          = date.today()
+days_to_earnings = (earnings_date - today_d).days if earnings_date else None
 
-        if not pd.isna(latest_hv):
-            m2.metric(f"{window}-Day Historical Vol", f"{latest_hv:.2f}%")
-        else:
-            m2.metric(f"{window}-Day Historical Vol", "N/A")
+liq_label, liq_style, liq_detail = (get_liquidity_score(calls, puts, current_price)
+                                     if calls is not None and not calls.empty
+                                     else ("N/A", "gray", {}))
 
-        if not pd.isna(latest_hvr):
-            m3.metric(
-                "Historical Vol Rank (HVR)",
-                f"{latest_hvr:.1f}",
-                delta=hvr_signal(latest_hvr),
-                delta_color="off"
-            )
-        else:
-            m3.metric("Historical Vol Rank (HVR)", "N/A")
+vix_current  = float(vix_data.iloc[-1]) if vix_data is not None else None
+vix_pct      = get_vix_percentile(vix_data)
 
-        if current_iv is not None:
-            m4.metric(f"Implied Vol ~{dte_target}DTE", f"{current_iv:.2f}%")
-        else:
-            m4.metric(f"Implied Vol ~{dte_target}DTE", "N/A",
-                      help="Options data may not be available for this ticker/index.")
+iv_hv_diff   = (atm_iv - hv20) if atm_iv else None
 
-        st.markdown("---")
+if iv_hv_diff is not None:
+    if iv_hv_diff > 5:    premium_label, premium_style = "PREMIUM RICH",  "green"
+    elif iv_hv_diff > -3: premium_label, premium_style = "FAIR VALUE",    "yellow"
+    else:                 premium_label, premium_style = "PREMIUM CHEAP", "red"
+else:
+    premium_label, premium_style = "N/A", "gray"
 
-        # ── Chart ──
+if len(term_structure) >= 2:
+    term_shape = "Contango" if term_structure[-1]["iv"] > term_structure[0]["iv"] else "Backwardation"
+    term_style = "green" if term_shape == "Contango" else "red"
+else:
+    term_shape, term_style = "N/A", "gray"
+
+if otm_put_iv and atm_iv:
+    if otm_put_iv / atm_iv > 1.15:                        skew_label = "Put Skew High"
+    elif otm_call_iv and otm_call_iv / atm_iv > 1.15:     skew_label = "Call Skew High"
+    else:                                                  skew_label = "Flat Skew"
+else:
+    skew_label = "N/A"
+
+exp_move    = calculate_expected_move(current_price, atm_iv if atm_iv else hv20, dte_target)
+upper_range = current_price + exp_move
+lower_range = current_price - exp_move
+
+result = strategy_engine(
+    hvr=hvr, atm_iv=atm_iv, hv20=hv20, trend_label=trend_label,
+    skew_label=skew_label, term_shape=term_shape, vix_pct=vix_pct,
+    days_to_earnings=days_to_earnings, liquidity_label=liq_label,
+    iv_hv_diff=iv_hv_diff if iv_hv_diff else 0
+)
+if macro_event:
+    result["warnings"].append("⚠️ Manual macro event flagged (Fed/CPI/etc.) — reduce size or avoid.")
+
+# ─────────────────────────────────────────────
+# TABS
+# ─────────────────────────────────────────────
+tab1, tab2, tab3 = st.tabs(["📊 Snapshot", "🌊 Volatility Structure", "🎯 Strategy Engine"])
+
+# ══════════════════════════════════════════════
+# TAB 1: SNAPSHOT
+# ══════════════════════════════════════════════
+with tab1:
+    m = st.columns(6)
+    m[0].metric("Last Price",               f"${current_price:,.2f}")
+    m[1].metric(f"ATM IV (~{dte_target}DTE)", f"{atm_iv:.1f}%" if atm_iv else "N/A")
+    m[2].metric("20D Historical Vol",       f"{hv20:.1f}%")
+    m[3].metric("30D Historical Vol",       f"{hv30:.1f}%")
+    m[4].metric(f"HV Rank",                 f"{hvr:.1f}")
+    m[5].metric(f"Expected Move ({dte_target}D)", f"${exp_move:.2f}")
+
+    st.markdown(
+        f'<div style="margin:12px 0 20px 0;">'
+        f'{make_badge(f"REGIME: {regime_label}", regime_style)}&nbsp;&nbsp;'
+        f'{make_badge(trend_label, trend_style)}&nbsp;&nbsp;'
+        f'{make_badge(f"VIX {vix_current:.1f}" if vix_current else "VIX N/A", "blue")}'
+        f'</div>', unsafe_allow_html=True
+    )
+
+    st.markdown("---")
+    ch1, ch2 = st.columns([3, 2])
+
+    with ch1:
         fig = go.Figure()
-
-        fig.add_trace(go.Scatter(
-            x=df.index, y=df['Close'],
+        fig.add_trace(go.Candlestick(
+            x=df.index, open=df["Open"], high=df["High"], low=df["Low"], close=df["Close"],
             name="Price",
-            line=dict(color="#00ADB5", width=2),
-            yaxis="y1"
+            increasing_line_color="#52D68A", decreasing_line_color="#FF6B6B",
+            increasing_fillcolor="rgba(82,214,138,0.7)", decreasing_fillcolor="rgba(255,107,107,0.7)"
         ))
-
-        fig.add_trace(go.Scatter(
-            x=df.index, y=df['HV'],
-            name=f"{window}-Day Historical Volatility (%)",
-            line=dict(color="#F8B195", width=2, dash="dot"),
-            yaxis="y2"
-        ))
-
+        fig.add_trace(go.Scatter(x=df.index, y=sma20, name="SMA 20",
+            line=dict(color="#00ADB5", width=1.5)))
+        fig.add_trace(go.Scatter(x=df.index, y=sma50, name="SMA 50",
+            line=dict(color="#F8B195", width=1.5, dash="dash")))
+        fig.add_hline(y=upper_range, line_dash="dot", line_color="rgba(82,214,138,0.7)",
+                      annotation_text=f"+EM ${upper_range:.0f}", annotation_position="right")
+        fig.add_hline(y=lower_range, line_dash="dot", line_color="rgba(255,107,107,0.7)",
+                      annotation_text=f"-EM ${lower_range:.0f}", annotation_position="right")
+        fig.add_hline(y=current_price, line_dash="solid", line_color="rgba(255,255,255,0.2)")
         fig.update_layout(
-            title=dict(
-                text=f"{display_ticker} — Price & Historical Volatility",
-                font=dict(size=17, color="#E0E0E0")
-            ),
-            xaxis=dict(title="Date", showgrid=False, color="#8B9CB6"),
-            yaxis=dict(
-                title="Price ($)",
-                title_font=dict(color="#00ADB5"),
-                tickfont=dict(color="#00ADB5"),
-                showgrid=True,
-                gridcolor="rgba(255,255,255,0.05)"
-            ),
-            yaxis2=dict(
-                title="Historical Volatility (%)",
-                title_font=dict(color="#F8B195"),
-                tickfont=dict(color="#F8B195"),
-                anchor="x", overlaying="y", side="right",
-                showgrid=False
-            ),
-            legend=dict(x=0.01, y=0.99, bgcolor="rgba(0,0,0,0)",
-                        font=dict(color="#CDD5E0")),
-            plot_bgcolor="rgba(0,0,0,0)",
-            paper_bgcolor="rgba(0,0,0,0)",
-            margin=dict(l=0, r=0, t=40, b=0),
-            hovermode="x unified"
+            title=f"{display_ticker} — Candlestick with SMAs & Expected Move",
+            xaxis_rangeslider_visible=False,
+            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+            xaxis=dict(showgrid=False, color="#8B9CB6"),
+            yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", color="#8B9CB6"),
+            legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(color="#CDD5E0")),
+            margin=dict(l=0, r=80, t=40, b=0)
         )
-
         st.plotly_chart(fig, use_container_width=True)
+        st.caption(f"Expected move bands: **${lower_range:.2f}** ↔ **${upper_range:.2f}** over {dte_target} days "
+                   f"using {'ATM IV' if atm_iv else 'HV20'} {(atm_iv or hv20):.1f}%")
 
-        # ── HVR Context Box ──
-        with st.expander("📖 How to read these metrics", expanded=False):
-            st.markdown("""
-| Metric | What it means |
-|---|---|
-| **Historical Vol (HV)** | Annualized std. dev. of past daily returns. Measures how much the asset *has* moved. |
-| **Historical Vol Rank (HVR)** | Where current HV sits on a 0–100 scale vs. the past 52 weeks. 0 = annual low, 100 = annual high. |
-| **Implied Vol (IV)** | Market's forward-looking expectation of future price movement, derived from options pricing. |
+    with ch2:
+        fig2 = go.Figure()
+        if atm_iv:
+            fig2.add_hline(y=atm_iv, line_dash="dot", line_color="#00ADB5",
+                           annotation_text=f"ATM IV {atm_iv:.1f}%", annotation_position="right")
+        fig2.add_trace(go.Scatter(x=df.index, y=hv20_s, name="20D HV",
+            line=dict(color="#F8B195", width=2)))
+        fig2.add_trace(go.Scatter(x=df.index, y=hv30_s, name="30D HV",
+            line=dict(color="#B195F8", width=1.5, dash="dash")))
+        fig2.update_layout(
+            title="IV vs Historical Volatility",
+            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+            xaxis=dict(showgrid=False, color="#8B9CB6"),
+            yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", color="#8B9CB6", title="Vol (%)"),
+            legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(color="#CDD5E0")),
+            margin=dict(l=0, r=80, t=40, b=0)
+        )
+        st.plotly_chart(fig2, use_container_width=True)
+        st.markdown("**→ For selling options?**")
+        if iv_hv_diff is not None:
+            if iv_hv_diff > 5:    st.success(f"ATM IV is **{iv_hv_diff:.1f}%** above 20D HV — **Premium Rich**. Favorable for selling.")
+            elif iv_hv_diff > -3: st.warning(f"ATM IV ≈ 20D HV (diff: {iv_hv_diff:+.1f}%) — **Fair Value**. Be selective.")
+            else:                 st.error(f"ATM IV is {abs(iv_hv_diff):.1f}% below HV — **Premium Cheap**. Avoid selling.")
+        else:
+            st.info("Options data unavailable for comparison.")
 
-**HVR Signals:**
-- 🔴 **≥ 80 (High):** Volatility is elevated. Favor premium *selling* strategies (spreads, strangles).
-- 🟡 **50–79 (Elevated):** Moderate regime. Use defined-risk strategies.
-- 🟢 **< 50 (Low / Very Low):** Volatility is cheap. Favor premium *buying* or directional strategies.
-""")
+# ══════════════════════════════════════════════
+# TAB 2: VOLATILITY STRUCTURE
+# ══════════════════════════════════════════════
+with tab2:
+    row1a, row1b = st.columns(2)
 
+    with row1a:
+        st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+        st.markdown('<p class="panel-title">📐 IV vs HV Spread</p>', unsafe_allow_html=True)
+        sc = st.columns(3)
+        sc[0].metric("ATM IV",  f"{atm_iv:.1f}%"      if atm_iv      else "N/A")
+        sc[1].metric("20D HV",  f"{hv20:.1f}%")
+        sc[2].metric("IV – HV", f"{iv_hv_diff:+.1f}%" if iv_hv_diff  else "N/A")
+        st.markdown(f"<br>{make_badge(premium_label, premium_style)}", unsafe_allow_html=True)
+        st.markdown("**→ For selling options?**")
+        if premium_style == "green":  st.success("IV elevated vs realized vol. Ideal for premium selling.")
+        elif premium_style == "yellow": st.warning("Fair value. Moderate opportunity — be selective.")
+        else: st.error("Premium cheap vs realized vol. Selling offers poor edge.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with row1b:
+        st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+        st.markdown('<p class="panel-title">🌡️ Volatility Risk — VIX / VVIX</p>', unsafe_allow_html=True)
+        vc = st.columns(3)
+        vc[0].metric("VIX",             f"{vix_current:.2f}" if vix_current else "N/A")
+        vc[1].metric("VIX 52W Pct",    f"{vix_pct:.0f}%"    if vix_pct    else "N/A")
+        vc[2].metric("VVIX",            f"{vvix_val:.1f}"    if vvix_val   else "N/A")
+        if vix_pct is not None:
+            vr, vs = ("PANIC ZONE 🚨", "red") if vix_pct > 80 else ("RISING RISK ⚠️", "orange") if vix_pct > 55 else ("STABLE ✅", "green")
+            st.markdown(f"<br>{make_badge(vr, vs)}", unsafe_allow_html=True)
+        st.markdown("**→ For selling options?**")
+        if vix_pct is not None:
+            if vix_pct > 80:   st.error("VIX panic zone. Use defined-risk strategies only.")
+            elif vix_pct > 55: st.warning("VIX rising. Caution with undefined-risk positions.")
+            else:              st.success("VIX stable. Favorable backdrop for premium selling.")
+        else:
+            st.info("VIX data unavailable.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # Term Structure
+    st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+    st.markdown('<p class="panel-title">📈 IV Term Structure</p>', unsafe_allow_html=True)
+    if term_structure:
+        ts_df  = pd.DataFrame(term_structure)
+        fig_ts = go.Figure()
+        fig_ts.add_trace(go.Scatter(
+            x=ts_df["dte"], y=ts_df["iv"], mode="lines+markers", name="IV",
+            line=dict(color="#00ADB5", width=2.5), marker=dict(size=8, color="#00ADB5")
+        ))
+        fig_ts.update_layout(
+            xaxis=dict(title="Days to Expiration (DTE)", showgrid=False, color="#8B9CB6"),
+            yaxis=dict(title="Implied Volatility (%)", showgrid=True,
+                       gridcolor="rgba(255,255,255,0.05)", color="#8B9CB6"),
+            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+            legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(color="#CDD5E0")),
+            margin=dict(l=0, r=0, t=10, b=0)
+        )
+        st.plotly_chart(fig_ts, use_container_width=True)
+        st.markdown(f"**Shape:** {make_badge(term_shape, term_style)}", unsafe_allow_html=True)
+        st.markdown("**→ For selling options?**")
+        if term_shape == "Contango": st.success("Contango: Normal. Near-term options decay faster — favorable for time-decay sellers.")
+        elif term_shape == "Backwardation": st.warning("Backwardation: Stress signal. Near-term IV elevated — use caution with short premium.")
     else:
-        st.warning(f"⚠️ No data found for **{data_ticker}**. Please check the ticker symbol or adjust the date range.")
+        st.info("Term structure unavailable for this ticker.")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("---")
+    skew_col, liq_col = st.columns(2)
+
+    with skew_col:
+        st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+        st.markdown('<p class="panel-title">🎢 Skew Analysis</p>', unsafe_allow_html=True)
+        sk = st.columns(3)
+        sk[0].metric("OTM Put IV (−5%)", f"{otm_put_iv:.1f}%"  if otm_put_iv  else "N/A")
+        sk[1].metric("ATM IV",           f"{atm_iv_skew:.1f}%" if atm_iv_skew else "N/A")
+        sk[2].metric("OTM Call IV (+5%)",f"{otm_call_iv:.1f}%" if otm_call_iv else "N/A")
+        if skew_label != "N/A":
+            sk_s = "red" if "Put" in skew_label else ("orange" if "Call" in skew_label else "green")
+            st.markdown(f"<br>{make_badge(skew_label, sk_s)}", unsafe_allow_html=True)
+        st.markdown("**→ For selling options?**")
+        if skew_label == "Put Skew High":   st.warning("Puts expensive — market pricing downside risk. Favor put spreads with caution.")
+        elif skew_label == "Call Skew High": st.success("Call premium elevated — sell call spreads.")
+        elif skew_label == "Flat Skew":     st.success("Flat skew — neutral. Iron condors and strangles well-positioned.")
+        else: st.info("Skew data unavailable.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with liq_col:
+        st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+        st.markdown('<p class="panel-title">💧 Liquidity Score (ATM Options)</p>', unsafe_allow_html=True)
+        st.markdown(f"<br>{make_badge(liq_label, liq_style)}<br><br>", unsafe_allow_html=True)
+        if liq_detail:
+            for k, v in liq_detail.items():
+                st.markdown(f"**{k}:** `{v}`")
+        st.markdown("**→ For selling options?**")
+        if liq_label == "GOOD":     st.success("Tight spreads and high volume. Easy to enter/exit positions efficiently.")
+        elif liq_label == "MODERATE": st.warning("Moderate liquidity. Use limit orders to avoid slippage.")
+        elif liq_label == "POOR":   st.error("Poor liquidity. Wide bid-ask spreads will significantly erode edge.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("---")
+    # Event Risk
+    st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+    st.markdown('<p class="panel-title">📅 Event Risk</p>', unsafe_allow_html=True)
+    ev1, ev2 = st.columns(2)
+    with ev1:
+        if earnings_date:
+            dte_earn = (earnings_date - today_d).days
+            earn_style = "red" if dte_earn < 14 else "yellow" if dte_earn < 30 else "green"
+            earn_label = "HIGH" if dte_earn < 14 else "MODERATE" if dte_earn < 30 else "LOW"
+            st.metric("Next Earnings", str(earnings_date))
+            st.markdown(f"{make_badge(f'EARNINGS RISK: {earn_label} ({dte_earn}d away)', earn_style)}", unsafe_allow_html=True)
+        else:
+            st.metric("Next Earnings", "N/A")
+    with ev2:
+        macro_style = "red" if macro_event else "green"
+        macro_text  = "MACRO EVENT ACTIVE" if macro_event else "NO MACRO OVERRIDE"
+        st.markdown(f"<br>{make_badge(macro_text, macro_style)}", unsafe_allow_html=True)
+    st.markdown("**→ For selling options?**")
+    if earnings_date and (earnings_date - today_d).days < 14:
+        st.error("Earnings within 14 days. IV typically spikes then collapses post-earnings. Do not sell premium into earnings unless it is your specific strategy.")
+    else:
+        st.success("No near-term earnings risk detected. Clear to evaluate selling strategies.")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════
+# TAB 3: STRATEGY ENGINE
+# ══════════════════════════════════════════════
+with tab3:
+    # Directional Filter
+    st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+    st.markdown('<p class="panel-title">🧭 Directional Filter</p>', unsafe_allow_html=True)
+    df1, df2, df3, df4 = st.columns(4)
+    df1.metric("Current Price", f"${current_price:,.2f}")
+    df2.metric("SMA 20",        f"${sma20.iloc[-1]:,.2f}" if not pd.isna(sma20.iloc[-1]) else "N/A")
+    df3.metric("SMA 50",        f"${sma50.iloc[-1]:,.2f}" if not pd.isna(sma50.iloc[-1]) else "N/A")
+    df4.metric("Trend",         trend_label)
+    st.markdown(f"<br>{make_badge(trend_label, trend_style)}", unsafe_allow_html=True)
+    st.markdown("**→ For selling options?**")
+    if trend_label == "RANGE-BOUND":   st.success("Range-bound: Ideal for non-directional strategies (Iron Condor, Strangle).")
+    elif trend_label == "UPTREND":     st.info("Uptrend: Favor selling put spreads (Bull Put Spread). Avoid selling covered calls aggressively.")
+    elif trend_label == "DOWNTREND":   st.warning("Downtrend: Favor selling call spreads (Bear Call Spread). Avoid undefined downside risk.")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # Full Decision Table
+    st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+    st.markdown('<p class="panel-title">📋 Full Metrics Decision Table</p>', unsafe_allow_html=True)
+    table_rows = [
+        ("Last Price",          f"${current_price:,.2f}",                      "Current market price"),
+        ("ATM Implied Vol",     f"{atm_iv:.1f}%" if atm_iv else "N/A",        "Market's forward vol expectation"),
+        ("20D Historical Vol",  f"{hv20:.1f}%",                                "Recent realized price volatility"),
+        ("30D Historical Vol",  f"{hv30:.1f}%",                                "Longer-term realized volatility"),
+        ("HV Rank (HVR)",       f"{hvr:.1f} / 100",                            "Where current vol sits vs 52W range"),
+        ("Volatility Regime",   regime_label,                                  "LOW < 30 | NORMAL 30-60 | HIGH 60-80 | EXTREME 80+"),
+        ("IV vs HV Spread",     f"{iv_hv_diff:+.1f}%" if iv_hv_diff else "N/A", premium_label),
+        ("Term Structure",      term_shape,                                    "Contango=normal, Backwardation=stress"),
+        ("Market Trend",        trend_label,                                   "Based on 20/50 SMA relationship"),
+        ("Skew",                skew_label,                                    "OTM put vs ATM vs OTM call IVs"),
+        ("VIX",                 f"{vix_current:.2f}" if vix_current else "N/A", "CBOE Volatility Index"),
+        ("VIX 52W Percentile",  f"{vix_pct:.0f}%" if vix_pct else "N/A",      ">80%=Panic | 55-80%=Rising | <55%=Stable"),
+        ("Liquidity",           liq_label,                                     "ATM options bid-ask, OI, volume"),
+        ("Expected Move",       f"${exp_move:.2f} (±{exp_move/current_price*100:.1f}%)", f"${lower_range:.2f} – ${upper_range:.2f}"),
+        ("Options Expiry Used", best_expiry if best_expiry else "N/A",        f"~{actual_dte}DTE" if actual_dte else ""),
+    ]
+    table_html = """
+    <table style="width:100%;border-collapse:collapse;">
+    <thead><tr>
+      <th style="background:rgba(0,173,181,0.12);color:#00ADB5;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:10px 14px;text-align:left;width:22%">Metric</th>
+      <th style="background:rgba(0,173,181,0.12);color:#00ADB5;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:10px 14px;text-align:left;width:20%">Value</th>
+      <th style="background:rgba(0,173,181,0.12);color:#00ADB5;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:10px 14px;text-align:left;">Interpretation</th>
+    </tr></thead><tbody>"""
+    for i, (metric, value, interp) in enumerate(table_rows):
+        bg = "rgba(255,255,255,0.02)" if i % 2 == 0 else "transparent"
+        table_html += f'<tr style="background:{bg};"><td style="color:#CDD5E0;font-size:.85rem;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.04);font-weight:500;">{metric}</td><td style="color:#00ADB5;font-size:.85rem;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.04);font-weight:700;">{value}</td><td style="color:#8B9CB6;font-size:.82rem;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.04);">{interp}</td></tr>'
+    table_html += "</tbody></table>"
+    st.markdown(table_html, unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # Final Decision Box
+    st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+    st.markdown('<p class="panel-title">🎯 Strategy Decision Engine</p>', unsafe_allow_html=True)
+
+    conf_color = {"High": "#52D68A", "Medium": "#FFD700", "Low": "#FF6B6B", "N/A": "#9B9B9B"}.get(result["confidence"], "#9B9B9B")
+    box_style  = {"green": "rgba(82,214,138,0.08)", "yellow": "rgba(255,215,0,0.08)", "red": "rgba(255,107,107,0.08)", "gray": "rgba(180,180,180,0.05)"}.get(result["badge_style"], "rgba(0,0,0,0)")
+    border_c   = {"green": "#52D68A55", "yellow": "#FFD70055", "red": "#FF6B6B55", "gray": "#9B9B9B33"}.get(result["badge_style"], "#33333355")
+
+    st.markdown(f"""
+    <div style="background:{box_style};border:1px solid {border_c};border-radius:16px;padding:30px 36px;text-align:center;margin:8px 0 20px 0;">
+        <div style="font-size:1.7rem;font-weight:800;color:#E0E6F0;margin-bottom:6px;">{result['strategy']}</div>
+        <div style="font-size:0.9rem;color:{conf_color};font-weight:600;margin-bottom:18px;">Confidence: {result['confidence']}</div>
+        <div style="display:flex;justify-content:center;gap:40px;flex-wrap:wrap;margin-bottom:20px;">
+            <div><div style="font-size:.7rem;color:#8B9CB6;text-transform:uppercase;letter-spacing:.5px;">Suggested DTE</div><div style="font-size:1rem;color:#CDD5E0;font-weight:600;">{result['dte_rec']}</div></div>
+            <div><div style="font-size:.7rem;color:#8B9CB6;text-transform:uppercase;letter-spacing:.5px;">Strike Guidance</div><div style="font-size:1rem;color:#CDD5E0;font-weight:600;">{result['strike_note']}</div></div>
+        </div>
+        <div style="font-size:.85rem;color:#8B9CB6;max-width:600px;margin:0 auto;line-height:1.6;">{result['reason']}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if result["warnings"]:
+        for w in result["warnings"]:
+            st.warning(w)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # Excel Export
+    st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+    st.markdown('<p class="panel-title">📥 Export to Excel</p>', unsafe_allow_html=True)
+    try:
+        summary_data = {
+            "Metric": [r[0] for r in table_rows],
+            "Value":  [r[1] for r in table_rows],
+            "Interpretation": [r[2] for r in table_rows],
+        }
+        summary_df = pd.DataFrame(summary_data)
+
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            summary_df.to_excel(writer, sheet_name="Volatility Summary", index=False)
+            df.tail(252).reset_index().to_excel(writer, sheet_name="Price History", index=False)
+            strategy_df = pd.DataFrame([{
+                "Strategy": result["strategy"],
+                "Confidence": result["confidence"],
+                "Suggested DTE": result["dte_rec"],
+                "Strike Note": result["strike_note"],
+                "Reasoning": result["reason"],
+                "Warnings": " | ".join(result["warnings"]) if result["warnings"] else "None"
+            }])
+            strategy_df.to_excel(writer, sheet_name="Strategy Output", index=False)
+        output.seek(0)
+
+        st.download_button(
+            label="⬇️ Download Full Analysis (.xlsx)",
+            data=output,
+            file_name=f"FazDane_{display_ticker}_{today_d}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    except Exception as e:
+        st.info("Install `openpyxl` to enable Excel export: `pip install openpyxl`")
+    st.markdown('</div>', unsafe_allow_html=True)
