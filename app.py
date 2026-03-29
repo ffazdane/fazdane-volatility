@@ -5,7 +5,7 @@ import yfinance as yf
 import plotly.graph_objects as go
 from datetime import datetime, timedelta, date
 import io
-
+import os
 # ─────────────────────────────────────────────
 # PAGE CONFIG
 # ─────────────────────────────────────────────
@@ -373,6 +373,8 @@ def get_selected_ticker(dropdown_val, custom_input, use_proxy):
 # SIDEBAR
 # ─────────────────────────────────────────────
 with st.sidebar:
+    if os.path.exists("logo.png"):
+        st.image("logo.png", use_container_width=True)
     st.markdown("### 📈 FazDane Analytics")
     st.caption("Volatility Engine v3.0")
     st.markdown("---")
@@ -515,7 +517,7 @@ if macro_event:
 # ─────────────────────────────────────────────
 # TABS
 # ─────────────────────────────────────────────
-tab1, tab2, tab3 = st.tabs(["📊 Snapshot", "🌊 Volatility Structure", "🎯 Strategy Engine"])
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Snapshot", "🌊 Volatility Structure", "🎯 Strategy Engine", "📖 User Guide"])
 
 # ══════════════════════════════════════════════
 # TAB 1: SNAPSHOT
@@ -848,4 +850,62 @@ with tab3:
     except Exception as e:
         st.error(f"Error generating Excel file: {e}")
         st.info("Make sure 'openpyxl' is installed: pip install openpyxl")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════
+# TAB 4: USER GUIDE
+# ══════════════════════════════════════════════
+with tab4:
+    st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+    st.markdown('<p class="panel-title">📖 Volatility Engine User Guide</p>', unsafe_allow_html=True)
+    
+    st.markdown("""
+    Welcome to the **FazDane Analytics Volatility Engine**. This platform is designed to answer a single critical question for options premium sellers: **"Is the current market environment favorable for selling options, and if so, what strategy should I use?"**
+
+    Below is a breakdown of every component, how to read it, and why it is important.
+    
+    ---
+    
+    ### 🎛️ Left Panel: Parameters & Inputs
+    - **Ticker Selection**: Choose from indices, Mag 7 stocks, or high-liquidity premium-selling favorites. You can also input any custom ticker. Indices are proxy-mapped to their highly liquid ETF equivalents (e.g., SPX mapped to SPY since SPX free options data is sparse).
+    - **HV Window (Days)**: The rolling window used to calculate Historical Volatility (default 20 days).
+    - **IV Target DTE**: Days To Expiration. The engine searches the live options chain for expirations closest to this target (default 30 days).
+    - **Event Risk Override**: Check this if there's a looming macro event (like a Fed decision or CPI release) to force the Strategy Engine to output high-risk warnings, regardless of how safe the data looks.
+
+    ---
+    
+    ### 📊 Tab 1: Snapshot
+    The Snapshot gives you the immediate pulse of the asset.
+    - **HV Rank (HVR)**: *[CRITICAL]* Since free data sources do not provide true historical Implied Volatility arrays, we use Historical Volatility Rank. This measures where the current 20-day volatility sits relative to its 52-week high and low. 
+      - *How to read:* `> 50` means volatility is historically elevated (good for sellers). `< 25` means volatility is completely crushed (bad for sellers).
+    - **Expected Move**: Mathematically derived from the Current Price, ATM IV, and DTE. Shows the 1 Standard Deviation expected range by expiration.
+    - **Regime & Trend Badges**: Shows if volatility is `LOW, NORMAL, HIGH, EXTREME` and whether the stock's 20-day/50-day moving averages indicate an `UPTREND, DOWNTREND, or RANGE-BOUND` market.
+
+    ---
+    
+    ### 🌊 Tab 2: Volatility Structure
+    This tab digs into the specific underlying options data to look for mispricings.
+    - **IV vs HV Spread**: Compares the live ATM Implied Volatility against actual realized Historical Volatility. 
+      - *Why it's important:* If IV > HV, the market is overestimating risk. This is known as "Premium Rich" and is the exact edge option sellers look for.
+    - **VIX / VVIX Risk**: Tracks the broad market volatility index. If VIX is above its 80th percentile, it is flagged as a "Panic Zone" where undefined risk (like naked puts/calls) should be avoided.
+    - **IV Term Structure**: Plots the IV across different expiration dates (7D, 14D, 30D, 60D). 
+      - *How to read:* **Contango** (upward sloping) is normal. **Backwardation** (downward sloping) means near-term panic is spiking.
+    - **Skew Analysis**: Compares OTM Put IV vs ATM IV vs OTM Call IV. 
+      - *Why it's important:* A high Put Skew means downside protection is expensive (favoring put sellers). A flat skew means Iron Condors are well-priced.
+    - **Liquidity Score**: Grades the Bid-Ask spread, Open Interest, and Volume. Poor liquidity will erase edge via slippage.
+
+    ---
+    
+    ### 🎯 Tab 3: Strategy Decision Engine
+    The brain of the platform. It aggregates all data to provide an algorithmic recommendation.
+    - **How it suggests:**
+      1. **Is Volatility High Enough?** It first checks the `HV Rank`. If it's below 15, it forces an `AVOID` or `HOLD`. Selling options when premium is dirt-cheap is a losing long-term game.
+      2. **Is there Directional Bias?** It reads the `Trend Label`. If in an `UPTREND`, it will favor selling `Bull Put Spreads`.
+      3. **Is the Market Choppy?** If the asset is `RANGE-BOUND`, IV > HV, and we are in Contango, it triggers the most profitable premium strategy: `SELL IRON CONDOR` or `SELL STRANGLE`.
+    - **Full Decision Table**: A transparent log of every metric and the engine's internal interpretation of it.
+
+    ---
+    
+    ***"Trade the math, not the emotion. FazDane Analytics is designed to quantify your edge."***
+    """)
     st.markdown('</div>', unsafe_allow_html=True)
