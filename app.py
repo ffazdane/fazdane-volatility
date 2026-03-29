@@ -960,8 +960,7 @@ with tab3:
                 data=st.session_state.pdf_bytes,
                 file_name=f"FazDane_Report_{display_ticker}_{pd.Timestamp.now().strftime('%Y-%m-%d')}.pdf",
                 mime="application/pdf",
-                type="primary",
-                key="download_pdf_btn"
+                type="primary"
             )
 
 # ══════════════════════════════════════════════
