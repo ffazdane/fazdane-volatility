@@ -48,6 +48,16 @@ div[data-testid="stMetricDelta"] svg { display: none; }
 /* Sidebar */
 section[data-testid="stSidebar"] { background-color: #161B22 !important; border-right: 1px solid rgba(255,255,255,0.06); }
 section[data-testid="stSidebar"] * { color: #CDD5E0; }
+
+/* Elegant container for dark-text logo in dark mode */
+section[data-testid="stSidebar"] [data-testid="stImage"] {
+    background-color: rgba(255, 255, 255, 0.95);
+    padding: 12px 16px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+    margin-bottom: 5px;
+}
+
 .sidebar-section { font-size: 0.68rem; font-weight: 700; color: #00ADB5 !important; text-transform: uppercase; letter-spacing: 1.5px; margin: 18px 0 4px 0; border-bottom: 1px solid rgba(0,173,181,0.2); padding-bottom: 4px; }
 section[data-testid="stSidebar"] input, section[data-testid="stSidebar"] textarea { background-color: #0E1117 !important; color: #E0E6F0 !important; border: 1px solid rgba(255,255,255,0.12) !important; border-radius: 6px !important; }
 section[data-testid="stSidebar"] div[data-baseweb="input"] { background-color: #0E1117 !important; border: 1px solid rgba(255,255,255,0.12) !important; border-radius: 6px !important; }
