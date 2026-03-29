@@ -301,57 +301,57 @@ def strategy_engine(hvr, atm_iv, hv20, trend_label, skew_label,
 
     diff = iv_hv_diff if iv_hv_diff else 0
 
-    if hvr < 20:
+    if hvr < 15:
         return {"strategy": "AVOID SELLING OPTIONS", "confidence": "High", "dte_rec": "—",
                 "strike_note": "Wait for volatility expansion",
-                "reason": "HV Rank < 20 — premium is historically cheap. Poor risk/reward for sellers.",
+                "reason": f"HV Rank is extremely low ({hvr:.1f}). Premium is historically cheap. Symmetrical risk is skewed against sellers.",
                 "warnings": warnings_list, "badge_style": "red"}
 
-    if hvr >= 60 and diff > 2 and term_shape == "Contango" and trend_label == "RANGE-BOUND":
+    if hvr >= 50 and diff > 1 and term_shape == "Contango" and trend_label == "RANGE-BOUND":
         return {"strategy": "SELL IRON CONDOR", "confidence": "High" if hvr >= 75 else "Medium",
                 "dte_rec": "30–45 days",
                 "strike_note": "Place short strikes at ±1 Expected Move (≈1 std dev)",
-                "reason": "High HV Rank + IV > HV + Contango + Range-bound. All 4 conditions met. Ideal iron condor setup.",
+                "reason": f"High HV Rank ({hvr:.1f}) + IV>HV + Contango + Range-bound. Ideal iron condor setup.",
                 "warnings": warnings_list, "badge_style": "green"}
 
-    if hvr >= 55 and trend_label == "RANGE-BOUND" and term_shape == "Contango":
-        return {"strategy": "SELL STRANGLE", "confidence": "Medium",
+    if hvr >= 40 and trend_label == "RANGE-BOUND" and term_shape == "Contango":
+        return {"strategy": "SELL STRANGLE / CONDOR", "confidence": "Medium",
                 "dte_rec": "30–45 days",
                 "strike_note": "Place short strikes at ±1 SD (expected move)",
-                "reason": "High HV Rank + range-bound + contango. Market lacks direction — strangle captures premium on both sides.",
+                "reason": f"Elevated HV Rank ({hvr:.1f}) + range-bound + contango. Strangle or Condor captures premium on both sides.",
                 "warnings": warnings_list, "badge_style": "green"}
 
-    if hvr >= 50 and trend_label == "UPTREND" and skew_label in ["Put Skew High", "Flat Skew"]:
-        return {"strategy": "SELL BULL PUT SPREAD", "confidence": "High" if hvr >= 65 else "Medium",
+    if hvr >= 30 and trend_label == "UPTREND" and skew_label in ["Put Skew High", "Flat Skew"]:
+        return {"strategy": "SELL BULL PUT SPREAD", "confidence": "High" if hvr >= 50 else "Medium",
                 "dte_rec": "21–35 days",
                 "strike_note": "Sell put at -1 SD, buy put 1–2 strikes lower",
-                "reason": "Uptrend + elevated HV Rank + favorable skew. Selling downside premium aligns with directional bias.",
+                "reason": f"Uptrend + decent HV Rank ({hvr:.1f}) + favorable skew. Selling downside premium aligns with directional bias.",
                 "warnings": warnings_list, "badge_style": "green"}
 
-    if hvr >= 50 and trend_label == "DOWNTREND" and skew_label in ["Call Skew High", "Flat Skew"]:
+    if hvr >= 30 and trend_label == "DOWNTREND" and skew_label in ["Call Skew High", "Flat Skew"]:
         return {"strategy": "SELL BEAR CALL SPREAD", "confidence": "Medium",
                 "dte_rec": "21–35 days",
                 "strike_note": "Sell call at +1 SD, buy call 1–2 strikes higher",
-                "reason": "Downtrend + elevated HV Rank. Selling upside call spread aligns with directional bias.",
+                "reason": f"Downtrend + decent HV Rank ({hvr:.1f}). Selling upside call spread aligns with directional bias.",
                 "warnings": warnings_list, "badge_style": "yellow"}
 
     if hvr >= 70 and term_shape == "Backwardation":
         return {"strategy": "SELL NEAR-TERM DEFINED RISK", "confidence": "Medium",
                 "dte_rec": "7–21 days",
                 "strike_note": "Use spreads — avoid naked short premium in backwardation",
-                "reason": "Backwardation: near-term IV spike. Sell spreads that expire quickly to capture elevated short-term premium.",
+                "reason": f"Backwardation + Extreme HV Rank ({hvr:.1f}). Near-term IV spike. Sell spreads that expire quickly.",
                 "warnings": warnings_list, "badge_style": "yellow"}
 
-    if hvr >= 35:
+    if hvr >= 25:
         return {"strategy": "SELL CREDIT SPREAD (Directional)", "confidence": "Low",
                 "dte_rec": "30–45 days",
-                "strike_note": "Direction + skew analysis required to choose put vs call spread",
-                "reason": "Moderate HV Rank. Some opportunity exists — use directional bias to choose side.",
+                "strike_note": "Direction + skew analysis required to choose put vs call",
+                "reason": f"Moderate HV Rank ({hvr:.1f}). Some opportunity exists — use directional bias to choose side.",
                 "warnings": warnings_list, "badge_style": "yellow"}
 
-    return {"strategy": "AVOID SELLING OPTIONS", "confidence": "High", "dte_rec": "—",
+    return {"strategy": "HOLD / WAIT", "confidence": "Medium", "dte_rec": "—",
             "strike_note": "—",
-            "reason": "HV Rank below threshold. Premium not elevated enough to justify selling.",
+            "reason": f"HV Rank is very low ({hvr:.1f}). Premium is not elevated enough to justify forcing a trade.",
             "warnings": warnings_list, "badge_style": "red"}
 
 # ─────────────────────────────────────────────
