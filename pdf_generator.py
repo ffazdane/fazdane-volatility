@@ -52,7 +52,7 @@ def generate_pdf_report(ticker, company_name, current_price, result, fig_vol, fi
     # We use a cell to draw the background box
     pdf.set_font("Helvetica", style="B", size=14)
     pdf.set_text_color(0, 173, 181)
-    pdf.cell(0, 10, "🎯 Strategy Recommendation", border="TLR", fill=True, new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.cell(0, 10, "Strategy Recommendation", border="TLR", fill=True, new_x="LMARGIN", new_y="NEXT", align="C")
     
     pdf.set_font("Helvetica", style="B", size=16)
     pdf.set_text_color(30, 30, 30)
