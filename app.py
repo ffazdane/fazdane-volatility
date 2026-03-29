@@ -957,7 +957,7 @@ with tab3:
             st.download_button(
                 label="⬇️ Download 1-Pager PDF",
                 data=st.session_state.pdf_bytes,
-                file_name=f"FazDane_Report_{display_ticker}_{today_d}.pdf",
+                file_name=f"FazDane_Volatility_Report_{display_ticker}.pdf",
                 mime="application/pdf",
                 type="primary"
             )

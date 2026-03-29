@@ -33,12 +33,13 @@ def sanitize_text(text):
     replacements = {
         "—": "-", "–": "-", "”": '"', "“": '"', "’": "'", "‘": "'",
         "…": "...", "⚠️": "[Warning]", "🚨": "[Alert]", "✅": "[OK]",
-        "📈": "", "💰": "", "🚀": "", "📉": "", "📊": "", "🎯": "", "🌊": "", "📖": ""
+        "📈": "", "💰": "", "🚀": "", "📉": "", "📊": "", "🎯": "", "🌊": "", "📖": "",
+        "±": "+/-"
     }
     for k, v in replacements.items():
         text = text.replace(k, v)
-    # Further encode to latin-1 to strip any remaining unrenderable characters
-    return text.encode('latin-1', 'ignore').decode('latin-1')
+    # Further encode to ascii to strip ANY remaining unrenderable characters completely
+    return text.encode('ascii', 'ignore').decode('ascii')
 
 def generate_pdf_report(ticker, company_name, current_price, result, fig_vol, fig_term, table_rows=None):
     """
