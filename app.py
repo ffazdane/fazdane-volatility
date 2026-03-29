@@ -30,34 +30,7 @@ h1 { color: #00ADB5 !important; }
 button[data-baseweb="tab"] { font-size: 0.88rem !important; font-weight: 600 !important; color: #8B9CB6 !important; padding: 10px 20px !important; }
 button[data-baseweb="tab"][aria-selected="true"] { color: #00ADB5 !important; }
 
-/* Sticky Header (Desktop only - preserves mobile screen space) */
-@media (min-width: 640px) {
-    /* 1. Make the header block sticky */
-    div[data-testid="stVerticalBlock"]:has(.sticky-header) {
-        position: sticky !important;
-        top: 0px !important;
-        z-index: 1000 !important;
-        background-color: #0E1117 !important; 
-        padding-top: 2rem !important;
-        margin-top: -2rem !important;
-        padding-bottom: 5px !important;
-        border-bottom: 1px solid rgba(0, 173, 181, 0.2) !important;
-    }
 
-    /* 2. Force Streamlit parent containers to allow overflow for stickiness */
-    div[data-testid="stMainView"], 
-    div[data-testid="stVerticalBlock"],
-    div[data-testid="stHeader"],
-    .stMainBlockContainer {
-        overflow: visible !important;
-    }
-
-    /* 3. Ensure the main section doesn't clip the header */
-    .stMain {
-        overflow-y: auto !important;
-        overflow-x: hidden !important;
-    }
-}
 
 /* Metrics */
 div[data-testid="stMetricValue"] { color: #00ADB5; font-size: 1.25rem !important; font-weight: 700; }
@@ -522,17 +495,15 @@ type_icon   = {"Index": "📊", "ETF": "💰", "Stock": "🚀"}.get(asset_type, 
 # ─────────────────────────────────────────────
 # HEADER
 # ─────────────────────────────────────────────
-with st.container():
-    st.markdown('<div class="sticky-header"></div>', unsafe_allow_html=True)
-    st.title("📈 FazDane Analytics: Volatility Engine")
-    st.markdown("*Professional options premium selling decision platform*")
-    b1, b2 = st.columns([1, 6])
-    _ticker_name = TICKER_NAMES.get(display_ticker, "")
-    if not _ticker_name:
-        _ticker_name = get_company_name(data_ticker)
-    _name_suffix  = f" — {_ticker_name}" if _ticker_name else ""
-    with b1: st.markdown(f"### {display_ticker}")
-    with b2: st.info(f"**{type_icon} {asset_type}**  |  {proxy_note if proxy_note else f'Ticker: `{data_ticker}`'}{_name_suffix}")
+st.title("📈 FazDane Analytics: Volatility Engine")
+st.markdown("*Professional options premium selling decision platform*")
+b1, b2 = st.columns([1, 6])
+_ticker_name = TICKER_NAMES.get(display_ticker, "")
+if not _ticker_name:
+    _ticker_name = get_company_name(data_ticker)
+_name_suffix  = f" — {_ticker_name}" if _ticker_name else ""
+with b1: st.markdown(f"### {display_ticker}")
+with b2: st.info(f"**{type_icon} {asset_type}**  |  {proxy_note if proxy_note else f'Ticker: `{data_ticker}`'}{_name_suffix}")
 
 st.markdown("---")
 
