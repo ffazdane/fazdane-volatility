@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta, date
 import io
 import os
+from pdf_generator import generate_pdf_report
 # ─────────────────────────────────────────────
 # PAGE CONFIG
 # ─────────────────────────────────────────────
@@ -595,6 +596,7 @@ if macro_event:
 # TABS
 # ─────────────────────────────────────────────
 tab1, tab2, tab3, tab4 = st.tabs(["📊 Snapshot", "🌊 Volatility Structure", "🎯 Strategy Engine", "📖 User Guide"])
+fig_ts = None # Pre-initialize for PDF export
 
 # ══════════════════════════════════════════════
 # TAB 1: SNAPSHOT
@@ -928,6 +930,36 @@ with tab3:
         st.error(f"Error generating Excel file: {e}")
         st.info("Make sure 'openpyxl' is installed: pip install openpyxl")
     st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("---")
+    
+    # PDF Export
+    st.markdown(panel_intro(display_ticker, "1-Pager PDF Summary", "Generates a fully branded, professionally formatted PDF report answering the critical question: 'Can I sell options on this ticker today?' — perfect for sending to clients or saving to your risk journal."), unsafe_allow_html=True)
+    st.markdown('<p class="panel-title">📄 Download 1-Pager Report</p>', unsafe_allow_html=True)
+    
+    gen_col, dl_col = st.columns([1, 4])
+    with gen_col:
+        # We need a button to initiate the generation so we don't spam PDF renders on every Streamlit state change
+        if st.button("Generate PDF Report", use_container_width=True):
+            with st.spinner("Compiling PDF and rendering graphs..."):
+                try:
+                    pdf_bytes = generate_pdf_report(
+                        display_ticker, _ticker_name, current_price, 
+                        result, fig, fig_ts
+                    )
+                    st.session_state.pdf_bytes = pdf_bytes
+                except Exception as e:
+                    st.error(f"Failed to generate PDF: {e}")
+    
+    with dl_col:
+        if "pdf_bytes" in st.session_state:
+            st.download_button(
+                label="⬇️ Download 1-Pager PDF",
+                data=st.session_state.pdf_bytes,
+                file_name=f"FazDane_Report_{display_ticker}_{today_d}.pdf",
+                mime="application/pdf",
+                type="primary"
+            )
 
 # ══════════════════════════════════════════════
 # TAB 4: USER GUIDE
