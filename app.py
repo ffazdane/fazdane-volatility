@@ -919,12 +919,12 @@ with tab3:
                 "Warnings": " | ".join(result["warnings"]) if result["warnings"] else "None"
             }])
             strategy_df.to_excel(writer, sheet_name="Strategy Output", index=False)
-        output.seek(0)
+        excel_bytes = output.getvalue()
 
         st.download_button(
-            label="⬇️ Download Full Analysis (.xlsx)",
-            data=output,
-            file_name=f"FazDane_{display_ticker}_{today_d}.xlsx",
+            label="Download Full Analysis (.xlsx)",
+            data=excel_bytes,
+            file_name=f"FazDane_{display_ticker}_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     except Exception as e:
@@ -956,9 +956,9 @@ with tab3:
     with dl_col:
         if "pdf_bytes" in st.session_state and st.session_state.get("pdf_ticker") == display_ticker:
             st.download_button(
-                label="⬇️ Download 1-Pager PDF",
+                label="Download 1-Pager PDF",
                 data=st.session_state.pdf_bytes,
-                file_name=f"FazDane_Report_{display_ticker}_{pd.Timestamp.now().strftime('%Y-%m-%d')}.pdf",
+                file_name=f"FazDane_Report_{display_ticker}_{datetime.now().strftime('%Y-%m-%d')}.pdf",
                 mime="application/pdf",
                 type="primary"
             )
