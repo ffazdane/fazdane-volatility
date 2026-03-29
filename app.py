@@ -32,12 +32,19 @@ button[data-baseweb="tab"][aria-selected="true"] { color: #00ADB5 !important; }
 
 /* Sticky Tabs (Desktop only - preserves mobile screen space) */
 @media (min-width: 640px) {
-    div[data-baseweb="tab-list"] {
+    /* 1. Remove overflow constraints from Streamlit containers to allow sticky behavior */
+    div[data-testid="stTabs"], .stVerticalBlock {
+        overflow: visible !important;
+    }
+
+    /* 2. Target the tab list container securely and make it sticky */
+    div[data-testid="stTabs"] > div:first-child {
         position: sticky !important;
-        top: 2.875rem !important; /* Clears the Streamlit top header */
+        top: 0px !important; /* Pinned to the top of the scrolling section */
         z-index: 1000 !important;
         background-color: #0E1117 !important;
         padding-top: 10px !important;
+        padding-bottom: 5px !important;
         box-shadow: 0px 10px 15px -10px rgba(0,0,0,0.5) !important;
     }
 }
