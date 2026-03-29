@@ -941,7 +941,7 @@ with tab3:
     gen_col, dl_col = st.columns([1, 4])
     with gen_col:
         # We need a button to initiate the generation so we don't spam PDF renders on every Streamlit state change
-        if st.button("Generate PDF Report", use_container_width=True):
+        if st.button("Generate PDF Report", use_container_width=True, key="generate_pdf_btn"):
             with st.spinner("Compiling PDF and rendering graphs..."):
                 try:
                     pdf_bytes = generate_pdf_report(
@@ -949,17 +949,19 @@ with tab3:
                         result, fig, fig_ts, table_rows
                     )
                     st.session_state.pdf_bytes = pdf_bytes
+                    st.session_state.pdf_ticker = display_ticker
                 except Exception as e:
                     st.error(f"Failed to generate PDF: {e}")
     
     with dl_col:
-        if "pdf_bytes" in st.session_state:
+        if "pdf_bytes" in st.session_state and st.session_state.get("pdf_ticker") == display_ticker:
             st.download_button(
                 label="⬇️ Download 1-Pager PDF",
                 data=st.session_state.pdf_bytes,
-                file_name=f"FazDane_Volatility_Report_{display_ticker}.pdf",
+                file_name=f"FazDane_Report_{display_ticker}_{today_d}.pdf",
                 mime="application/pdf",
-                type="primary"
+                type="primary",
+                key="download_pdf_btn"
             )
 
 # ══════════════════════════════════════════════
