@@ -30,6 +30,18 @@ h1 { color: #00ADB5 !important; }
 button[data-baseweb="tab"] { font-size: 0.88rem !important; font-weight: 600 !important; color: #8B9CB6 !important; padding: 10px 20px !important; }
 button[data-baseweb="tab"][aria-selected="true"] { color: #00ADB5 !important; }
 
+/* Sticky Tabs (Desktop only - preserves mobile screen space) */
+@media (min-width: 640px) {
+    div[data-baseweb="tab-list"] {
+        position: sticky !important;
+        top: 2.875rem !important; /* Clears the Streamlit top header */
+        z-index: 1000 !important;
+        background-color: #0E1117 !important;
+        padding-top: 10px !important;
+        box-shadow: 0px 10px 15px -10px rgba(0,0,0,0.5) !important;
+    }
+}
+
 /* Metrics */
 div[data-testid="stMetricValue"] { color: #00ADB5; font-size: 1.25rem !important; font-weight: 700; }
 div[data-testid="stMetricLabel"] { color: #8B9CB6; font-size: 0.72rem !important; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
