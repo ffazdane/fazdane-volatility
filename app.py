@@ -81,6 +81,37 @@ ASSET_TYPES = {
     "XLE": "ETF", "XLF": "ETF", "XLK": "ETF", "SMH": "ETF", "TLT": "ETF", "GLD": "ETF",
     "AMD": "Stock", "NFLX": "Stock", "COIN": "Stock", "BA": "Stock", "JPM": "Stock",
 }
+# ─────────────────────────────────────────────
+# TICKER SHORT NAMES
+# ─────────────────────────────────────────────
+TICKER_NAMES = {
+    "SPX":  "S&P 500 Index",
+    "NDX":  "Nasdaq-100 Index",
+    "RUT":  "Russell 2000 Index",
+    "AAPL": "Apple Inc. (AAPL)",
+    "MSFT": "Microsoft Corporation (MSFT)",
+    "NVDA": "NVIDIA Corporation (NVDA)",
+    "AMZN": "Amazon.com Inc. (AMZN)",
+    "GOOGL": "Alphabet Inc. (GOOGL)",
+    "META": "Meta Platforms Inc. (META)",
+    "TSLA": "Tesla Inc. (TSLA)",
+    "SPY":  "SPDR S&P 500 ETF Trust (SPY)",
+    "QQQ":  "Invesco QQQ Trust (QQQ)",
+    "IWM":  "iShares Russell 2000 ETF (IWM)",
+    "DIA":  "SPDR Dow Jones Industrial Average ETF (DIA)",
+    "XLE":  "Energy Select Sector SPDR Fund (XLE)",
+    "XLF":  "Financial Select Sector SPDR Fund (XLF)",
+    "XLK":  "Technology Select Sector SPDR Fund (XLK)",
+    "SMH":  "VanEck Semiconductor ETF (SMH)",
+    "TLT":  "iShares 20+ Year Treasury Bond ETF (TLT)",
+    "GLD":  "SPDR Gold Shares ETF (GLD)",
+    "AMD":  "Advanced Micro Devices Inc. (AMD)",
+    "NFLX": "Netflix Inc. (NFLX)",
+    "COIN": "Coinbase Global Inc. (COIN)",
+    "BA":   "The Boeing Company (BA)",
+    "JPM":  "JPMorgan Chase & Co. (JPM)",
+}
+
 DROPDOWN_OPTIONS = {
     "── 📊 Indices ──────────────────": ["SPX", "NDX", "RUT"],
     "── 🚀 Mag 7 ────────────────────": ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA"],
@@ -397,7 +428,12 @@ with st.sidebar:
             st.session_state.custom_ticker   = ""
 
     st.markdown("---")
-    st.markdown('<p class="sidebar-section">Ticker</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sidebar-section">Instrument Selection</p>', unsafe_allow_html=True)
+    st.caption(
+        "Select a ticker from the curated watchlist or enter any custom symbol below. "
+        "All volatility metrics, options data, and strategy recommendations displayed "
+        "on the right will update automatically for the selected instrument."
+    )
     st.selectbox("Select Ticker", options=FLAT_OPTIONS, key="dropdown_select", label_visibility="collapsed")
     custom_input = st.text_input("Or Enter Custom Ticker", value=st.session_state.custom_ticker,
                                  placeholder="e.g. SHOP, MSTR...", key="custom_input_field")
@@ -435,8 +471,10 @@ type_icon   = {"Index": "📊", "ETF": "💰", "Stock": "🚀"}.get(asset_type, 
 st.title("📈 FazDane Analytics: Volatility Engine")
 st.markdown("*Professional options premium selling decision platform*")
 b1, b2 = st.columns([1, 6])
+_ticker_name = TICKER_NAMES.get(display_ticker, "")
+_name_suffix  = f" — {_ticker_name}" if _ticker_name else ""
 with b1: st.markdown(f"### {display_ticker}")
-with b2: st.info(f"**{type_icon} {asset_type}**  |  {proxy_note if proxy_note else f'Ticker: `{data_ticker}`'}")
+with b2: st.info(f"**{type_icon} {asset_type}**  |  {proxy_note if proxy_note else f'Ticker: `{data_ticker}`'}{_name_suffix}")
 
 st.markdown("---")
 
