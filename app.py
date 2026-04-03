@@ -890,8 +890,11 @@ with tab3:
     st.markdown("---")
 
     # Excel Export
-    st.markdown(panel_intro(display_ticker, "Data Export", "Downloads the full analysis as a structured Excel workbook containing the volatility summary, price history, and strategy output — suitable for trade journaling, compliance records, or further quantitative analysis."), unsafe_allow_html=True)
+    st.markdown(panel_intro(display_ticker, "Data Export", "Downloads the full analysis as a structured Excel workbook containing the volatility summary, price history, and strategy output."), unsafe_allow_html=True)
     st.markdown('<p class="panel-title">📥 Export to Excel</p>', unsafe_allow_html=True)
+    
+    _excel_bytes = None
+    _excel_error = None
     try:
         summary_data = {
             "Metric": [r[0] for r in table_rows],
@@ -899,17 +902,13 @@ with tab3:
             "Interpretation": [r[2] for r in table_rows],
         }
         summary_df = pd.DataFrame(summary_data)
-
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             summary_df.to_excel(writer, sheet_name="Volatility Summary", index=False)
-            
-            # yfinance returns timezone-aware dates, which break Excel/openpyxl
             price_hist = df.tail(252).reset_index()
             if "Date" in price_hist.columns and pd.api.types.is_datetime64_any_dtype(price_hist["Date"]):
                 price_hist["Date"] = price_hist["Date"].dt.tz_localize(None)
             price_hist.to_excel(writer, sheet_name="Price History", index=False)
-            
             strategy_df = pd.DataFrame([{
                 "Strategy": result["strategy"],
                 "Confidence": result["confidence"],
@@ -919,17 +918,21 @@ with tab3:
                 "Warnings": " | ".join(result["warnings"]) if result["warnings"] else "None"
             }])
             strategy_df.to_excel(writer, sheet_name="Strategy Output", index=False)
-        excel_bytes = output.getvalue()
-
-        st.download_button(
-            label="Download Full Analysis (.xlsx)",
-            data=excel_bytes,
-            file_name=f"FazDane_{display_ticker}_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        _excel_bytes = output.getvalue()
     except Exception as e:
-        st.error(f"Error generating Excel file: {e}")
-        st.info("Make sure 'openpyxl' is installed: pip install openpyxl")
+        _excel_error = str(e)
+
+    if _excel_error:
+        st.error(f"Error generating Excel: {_excel_error}")
+    
+    # Always render unconditionally — conditional rendering causes Streamlit UUID filename bug
+    st.download_button(
+        label="Download Full Analysis (.xlsx)",
+        data=_excel_bytes if _excel_bytes else b"",
+        file_name=f"FazDane_{display_ticker}_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        disabled=(_excel_bytes is None)
+    )
     st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("---")
@@ -940,28 +943,37 @@ with tab3:
     
     gen_col, dl_col = st.columns([1, 4])
     with gen_col:
-        # We need a button to initiate the generation so we don't spam PDF renders on every Streamlit state change
         if st.button("Generate PDF Report", use_container_width=True, key="generate_pdf_btn"):
             with st.spinner("Compiling PDF and rendering graphs..."):
                 try:
                     pdf_bytes = generate_pdf_report(
-                        display_ticker, _ticker_name, current_price, 
+                        display_ticker, _ticker_name, current_price,
                         result, fig, fig_ts, table_rows
                     )
                     st.session_state.pdf_bytes = pdf_bytes
                     st.session_state.pdf_ticker = display_ticker
                 except Exception as e:
                     st.error(f"Failed to generate PDF: {e}")
-    
+
+    # Determine if we have a valid PDF ready for this ticker
+    _pdf_ready = (
+        "pdf_bytes" in st.session_state
+        and st.session_state.get("pdf_ticker") == display_ticker
+        and st.session_state.pdf_bytes
+    )
+    _pdf_data = st.session_state.pdf_bytes if _pdf_ready else b""
+    _pdf_name = f"FazDane_Report_{display_ticker}_{datetime.now().strftime('%Y-%m-%d')}.pdf"
+
     with dl_col:
-        if "pdf_bytes" in st.session_state and st.session_state.get("pdf_ticker") == display_ticker:
-            st.download_button(
-                label="Download 1-Pager PDF",
-                data=st.session_state.pdf_bytes,
-                file_name=f"FazDane_Report_{display_ticker}_{datetime.now().strftime('%Y-%m-%d')}.pdf",
-                mime="application/pdf",
-                type="primary"
-            )
+        # Always render unconditionally — conditional rendering causes Streamlit UUID filename bug
+        st.download_button(
+            label="Download 1-Pager PDF" if _pdf_ready else "Generate PDF first →",
+            data=_pdf_data,
+            file_name=_pdf_name,
+            mime="application/pdf",
+            type="primary",
+            disabled=(not _pdf_ready)
+        )
 
 # ══════════════════════════════════════════════
 # TAB 4: USER GUIDE
